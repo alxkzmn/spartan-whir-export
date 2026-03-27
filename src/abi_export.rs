@@ -3,7 +3,6 @@ use anyhow::{ensure, Context};
 use p3_field::BasedVectorSpace;
 use spartan_whir::{
     effective_digest_bytes_for_security_bits, engine::F, SecurityConfig, SoundnessAssumption,
-    WhirParams,
 };
 use whir_p3::whir::proof::{
     QueryBatchOpening as RawQueryBatchOpening, SumcheckData as RawSumcheckData,
@@ -83,7 +82,6 @@ pub fn proof_to_abi(raw_proof: &RawWhirProof4) -> anyhow::Result<WhirProof> {
 pub fn config_to_abi(
     config: &WhirConfig4,
     security: SecurityConfig,
-    whir_params: WhirParams,
     whir_fs_pattern: &[F],
 ) -> ExpandedWhirConfig {
     ExpandedWhirConfig {
@@ -93,12 +91,8 @@ pub fn config_to_abi(
         commitmentOodSamples: to_u256_usize(config.commitment_ood_samples),
         startingLogInvRate: to_u256_usize(config.starting_log_inv_rate),
         startingFoldingPowBits: to_u256_usize(config.starting_folding_pow_bits),
-        foldingFactor: to_u256_usize(whir_params.folding_factor),
         rsDomainInitialReductionFactor: to_u256_usize(config.rs_domain_initial_reduction_factor),
-        finalQueries: to_u256_usize(config.final_queries),
-        finalPowBits: to_u256_usize(config.final_pow_bits),
         finalSumcheckRounds: to_u256_usize(config.final_sumcheck_rounds),
-        finalFoldingPowBits: to_u256_usize(config.final_folding_pow_bits),
         soundnessAssumption: soundness_tag(security.soundness_assumption),
         merkleSecurityBits: security.merkle_security_bits,
         effectiveDigestBytes: effective_digest_bytes_for_security_bits(
@@ -108,17 +102,9 @@ pub fn config_to_abi(
         roundParameters: config
             .round_parameters
             .iter()
-            .map(|round| RoundConfig {
-                powBits: to_u256_usize(round.pow_bits),
-                foldingPowBits: to_u256_usize(round.folding_pow_bits),
-                numQueries: to_u256_usize(round.num_queries),
-                oodSamples: to_u256_usize(round.ood_samples),
-                numVariables: to_u256_usize(round.num_variables),
-                foldingFactor: to_u256_usize(round.folding_factor),
-                domainSize: to_u256_usize(round.domain_size),
-                foldedDomainGen: to_u256_base(round.folded_domain_gen),
-            })
+            .map(round_config_to_abi)
             .collect(),
+        finalRoundConfig: round_config_to_abi(&config.final_round_config()),
     }
 }
 
@@ -167,6 +153,19 @@ where
             .copied()
             .map(to_u256_base)
             .collect(),
+    }
+}
+
+fn round_config_to_abi(round: &whir_p3::whir::parameters::RoundConfig<F>) -> RoundConfig {
+    RoundConfig {
+        powBits: to_u256_usize(round.pow_bits),
+        foldingPowBits: to_u256_usize(round.folding_pow_bits),
+        numQueries: to_u256_usize(round.num_queries),
+        oodSamples: to_u256_usize(round.ood_samples),
+        numVariables: to_u256_usize(round.num_variables),
+        foldingFactor: to_u256_usize(round.folding_factor),
+        domainSize: to_u256_usize(round.domain_size),
+        foldedDomainGen: to_u256_base(round.folded_domain_gen),
     }
 }
 

@@ -32,12 +32,7 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
     let quartic = build_quartic_fixture()?;
 
     let abi_statement = statement_to_abi(&quartic.statement_points, &quartic.statement_evaluations);
-    let abi_config = config_to_abi(
-        &quartic.config,
-        quartic.security,
-        quartic.whir_params,
-        &quartic.whir_fs_pattern,
-    );
+    let abi_config = config_to_abi(&quartic.config, quartic.security, &quartic.whir_fs_pattern);
     let abi_proof = proof_to_abi(&quartic.proof)?;
 
     let mut tampered_raw_proof = quartic.proof.clone();
