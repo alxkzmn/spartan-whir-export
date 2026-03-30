@@ -74,6 +74,7 @@ pub struct MerkleNodeCompressionVector {
 /// Multiproof test vector: leaf indices, opened rows, sibling decommitments, and expected root.
 #[derive(Debug, Serialize)]
 pub struct MerkleMultiproofVector {
+    pub depth: usize,
     pub indices: Vec<usize>,
     pub opened_rows: Vec<Vec<u32>>,
     pub decommitments: Vec<String>,
@@ -238,6 +239,7 @@ pub fn generate_merkle_vectors(effective_digest_bytes: usize) -> anyhow::Result<
     );
 
     let multiproof_vector = MerkleMultiproofVector {
+        depth,
         indices,
         opened_rows: opened_rows
             .into_iter()

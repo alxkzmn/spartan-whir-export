@@ -10,6 +10,32 @@ use alloy_sol_types::sol;
 pub const DIGEST_ELEMS: usize = 4;
 
 sol! {
+    struct MerkleLeafHashFixture {
+        uint256[] values;
+        bytes32 digest;
+    }
+
+    struct MerkleNodeCompressionFixture {
+        bytes32 left;
+        bytes32 right;
+        bytes32 parent;
+    }
+
+    struct MerkleMultiproofFixture {
+        uint256 depth;
+        uint256[] indices;
+        uint256[][] openedRows;
+        bytes32[] decommitments;
+        bytes32 expectedRoot;
+    }
+
+    struct MerkleVectorFixture {
+        uint256 effectiveDigestBytes;
+        MerkleLeafHashFixture[] leafHashes;
+        MerkleNodeCompressionFixture[] nodeCompressions;
+        MerkleMultiproofFixture multiproof;
+    }
+
     struct ChallengerTranscriptEvent {
         uint8 op;
         bytes observedBytes;
