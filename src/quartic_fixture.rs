@@ -1,4 +1,4 @@
-use anyhow::ensure;
+use anyhow::{ensure, Context};
 use p3_challenger::FieldChallenger;
 use p3_dft::Radix2DFTSmallBatch;
 use p3_field::PrimeCharacteristicRing;
@@ -16,7 +16,7 @@ use whir_p3::{
         committer::{reader::CommitmentReader, writer::CommitmentWriter},
         constraints::statement::{initial::InitialStatement, EqStatement},
         parameters::WhirConfig,
-        proof::WhirProof as RawWhirProof,
+        proof::{QueryBatchOpening as RawQueryBatchOpening, WhirProof as RawWhirProof},
         prover::Prover,
         verifier::Verifier,
     },
@@ -42,6 +42,24 @@ pub struct QuarticFixture {
     pub verifier_trace: Vec<TranscriptEvent>,
     pub checkpoint_prover: EF4,
     pub checkpoint_verifier: EF4,
+}
+
+pub fn tamper_first_stir_query(proof: &RawWhirProof4) -> anyhow::Result<RawWhirProof4> {
+    let mut tampered = proof.clone();
+
+    if let Some(query_batch) = tampered
+        .rounds
+        .iter_mut()
+        .find_map(|round| round.query_batch.as_mut())
+        .or(tampered.final_query_batch.as_mut())
+    {
+        tamper_query_batch_value(query_batch)?;
+        return Ok(tampered);
+    }
+
+    Err(anyhow::anyhow!(
+        "proof does not contain any STIR query batches"
+    ))
 }
 
 pub fn build_quartic_fixture() -> anyhow::Result<QuarticFixture> {
@@ -189,4 +207,27 @@ fn map_soundness_assumption(soundness: SoundnessAssumption) -> WhirSecurity {
         SoundnessAssumption::JohnsonBound => WhirSecurity::JohnsonBound,
         SoundnessAssumption::CapacityBound => WhirSecurity::CapacityBound,
     }
+}
+
+fn tamper_query_batch_value(
+    query_batch: &mut RawQueryBatchOpening<F, EF4, u64, DIGEST_ELEMS>,
+) -> anyhow::Result<()> {
+    match query_batch {
+        RawQueryBatchOpening::Base { values, .. } => {
+            let first = values
+                .first_mut()
+                .and_then(|row| row.first_mut())
+                .context("base STIR query batch is empty")?;
+            *first += F::from_u32(1);
+        }
+        RawQueryBatchOpening::Extension { values, .. } => {
+            let first = values
+                .first_mut()
+                .and_then(|row| row.first_mut())
+                .context("extension STIR query batch is empty")?;
+            *first += EF4::from(F::from_u32(1));
+        }
+    }
+
+    Ok(())
 }
