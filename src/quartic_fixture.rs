@@ -62,6 +62,16 @@ pub fn tamper_first_stir_query(proof: &RawWhirProof4) -> anyhow::Result<RawWhirP
     ))
 }
 
+pub fn tamper_first_initial_ood_answer(proof: &RawWhirProof4) -> anyhow::Result<RawWhirProof4> {
+    let mut tampered = proof.clone();
+    let first = tampered
+        .initial_ood_answers
+        .first_mut()
+        .context("proof does not contain any initial OOD answers")?;
+    *first += EF4::from(F::from_u32(1));
+    Ok(tampered)
+}
+
 pub fn build_quartic_fixture() -> anyhow::Result<QuarticFixture> {
     let security = SecurityConfig {
         security_level_bits: 80,

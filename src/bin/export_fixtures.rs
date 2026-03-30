@@ -11,7 +11,9 @@ use spartan_whir_export::{
         config_to_abi, placeholder_spartan_instance, placeholder_spartan_proof, proof_to_abi,
         statement_to_abi,
     },
-    quartic_fixture::{build_quartic_fixture, tamper_first_stir_query},
+    quartic_fixture::{
+        build_quartic_fixture, tamper_first_initial_ood_answer, tamper_first_stir_query,
+    },
     transcript::TranscriptTraceFile,
     utils::{extension_coeffs_u32, write_abi_file, write_json_file},
     vectors::{generate_field_vectors, generate_merkle_vectors},
@@ -40,6 +42,8 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
     let tampered_abi_proof = proof_to_abi(&tampered_raw_proof)?;
     let tampered_stir_proof = tamper_first_stir_query(&quartic.proof)?;
     let tampered_stir_abi_proof = proof_to_abi(&tampered_stir_proof)?;
+    let tampered_ood_proof = tamper_first_initial_ood_answer(&quartic.proof)?;
+    let tampered_ood_abi_proof = proof_to_abi(&tampered_ood_proof)?;
 
     write_abi_file(
         &out_dir.join("quartic_whir_success_statement.abi"),
@@ -57,6 +61,10 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
     write_abi_file(
         &out_dir.join("quartic_whir_failure_bad_stir_query_proof.abi"),
         &tampered_stir_abi_proof,
+    )?;
+    write_abi_file(
+        &out_dir.join("quartic_whir_failure_bad_ood_or_transcript_mismatch_proof.abi"),
+        &tampered_ood_abi_proof,
     )?;
 
     let field_vectors = generate_field_vectors();
@@ -88,6 +96,7 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
             "Fixtures are generated from a real quartic WHIR proving flow.",
             "Failure fixture mutates initial commitment to force commitment mismatch.",
             "Failure fixture mutates one STIR query opening while keeping commitments and OOD answers intact.",
+            "Failure fixture mutates one initial OOD answer, which also changes the downstream transcript.",
             "Transcript trace records every observe/sample call with challenger states.",
             "Field vectors include base/quartic/octic arithmetic tuples.",
             "Merkle vectors include leaf hashes, node compression, and multiproof root checks.",
