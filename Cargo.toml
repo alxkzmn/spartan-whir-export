@@ -13,6 +13,7 @@ path = "src/bin/export_fixtures.rs"
 alloy-primitives = "0.8"
 alloy-sol-types = "0.8"
 anyhow = "1"
+hex = "0.4"
 p3-challenger = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
 p3-commit = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
 p3-dft = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
