@@ -11,6 +11,7 @@ use spartan_whir_export::{
     abi_export::{
         placeholder_spartan_instance, placeholder_spartan_proof, proof_to_abi, statement_to_abi,
     },
+    fixed_config_codegen::generate_quartic_fixed_config_source,
     quartic_fixture::{
         build_quartic_fixture, tamper_first_initial_ood_answer, tamper_first_stir_query,
     },
@@ -47,6 +48,7 @@ fn bytes32_from_hex(hex_str: &str) -> anyhow::Result<FixedBytes<32>> {
 
 fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
     let quartic = build_quartic_fixture()?;
+    write_quartic_fixed_config(out_dir, &quartic)?;
 
     let abi_statement = statement_to_abi(&quartic.statement_points, &quartic.statement_evaluations);
     let abi_proof = proof_to_abi(&quartic.proof)?;
@@ -231,6 +233,28 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
         &out_dir.join("spartan_placeholder_proof.abi"),
         &placeholder_spartan_proof(abi_proof),
     )?;
+
+    Ok(())
+}
+
+fn write_quartic_fixed_config(
+    out_dir: &Path,
+    quartic: &spartan_whir_export::quartic_fixture::QuarticFixture,
+) -> anyhow::Result<()> {
+    let project_root = out_dir
+        .parent()
+        .context("fixture output directory must be nested under a project root")?;
+    let generated_dir = project_root.join("src/generated");
+    fs::create_dir_all(&generated_dir).with_context(|| {
+        format!(
+            "failed to create generated Solidity directory {}",
+            generated_dir.display()
+        )
+    })?;
+
+    let source = generate_quartic_fixed_config_source(quartic);
+    fs::write(generated_dir.join("QuarticWhirFixedConfig.sol"), source)
+        .context("failed to write QuarticWhirFixedConfig.sol")?;
 
     Ok(())
 }

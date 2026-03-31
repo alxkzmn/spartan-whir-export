@@ -22,7 +22,9 @@ use whir_p3::{
     },
 };
 
-use crate::{transcript::TraceChallenger, transcript::TranscriptEvent, DIGEST_ELEMS};
+use crate::{
+    transcript::TraceChallenger, transcript::TranscriptEvent, DIGEST_ELEMS, FIXTURE_WHIR_PARAMS,
+};
 
 pub type EF4 = QuarticBinExtension;
 pub type RawWhirProof4 = RawWhirProof<F, EF4, u64, DIGEST_ELEMS>;
@@ -78,8 +80,8 @@ pub fn build_quartic_fixture() -> anyhow::Result<QuarticFixture> {
         merkle_security_bits: 80,
         soundness_assumption: SoundnessAssumption::CapacityBound,
     };
-    let whir_params = WhirParams::default();
-    let num_variables = 6usize;
+    let whir_params = FIXTURE_WHIR_PARAMS;
+    let num_variables = 16usize;
 
     let protocol_params = ProtocolParameters {
         starting_log_inv_rate: whir_params.starting_log_inv_rate,
@@ -107,7 +109,7 @@ pub fn build_quartic_fixture() -> anyhow::Result<QuarticFixture> {
     let mut statement_points = Vec::new();
     let mut statement_evaluations = Vec::new();
 
-    for seed in [3_u32, 11_u32] {
+    for seed in [3_u32] {
         let point = WhirPoint::expand_from_univariate(EF4::from(F::from_u32(seed)), num_variables);
         let evaluation = poly_evals.evaluate_hypercube_base(&point);
         statement_points.push(point.as_slice().to_vec());
