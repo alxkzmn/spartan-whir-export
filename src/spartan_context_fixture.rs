@@ -8,7 +8,7 @@ use spartan_whir::{
     WhirParams,
 };
 
-use crate::transcript::TraceChallenger;
+use crate::{transcript::TraceChallenger, FIXTURE_WHIR_PARAMS};
 
 pub type EF4 = QuarticBinExtension;
 
@@ -31,7 +31,7 @@ pub fn build_spartan_context_fixture() -> anyhow::Result<SpartanContextFixture> 
         merkle_security_bits: 80,
         soundness_assumption: SoundnessAssumption::CapacityBound,
     };
-    let whir_params = WhirParams::default();
+    let whir_params = FIXTURE_WHIR_PARAMS;
     let fixture = generate_satisfiable_fixture(&SyntheticR1csConfig {
         target_log2_witness_poly: 4,
         num_constraints: 4,
