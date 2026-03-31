@@ -8,8 +8,7 @@ use serde::Serialize;
 use spartan_whir::effective_digest_bytes_for_security_bits;
 use spartan_whir_export::{
     abi_export::{
-        config_to_abi, placeholder_spartan_instance, placeholder_spartan_proof, proof_to_abi,
-        statement_to_abi,
+        placeholder_spartan_instance, placeholder_spartan_proof, proof_to_abi, statement_to_abi,
     },
     quartic_fixture::{
         build_quartic_fixture, tamper_first_initial_ood_answer, tamper_first_stir_query,
@@ -34,7 +33,6 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
     let quartic = build_quartic_fixture()?;
 
     let abi_statement = statement_to_abi(&quartic.statement_points, &quartic.statement_evaluations);
-    let abi_config = config_to_abi(&quartic.config, quartic.security, &quartic.whir_fs_pattern);
     let abi_proof = proof_to_abi(&quartic.proof)?;
 
     let mut tampered_raw_proof = quartic.proof.clone();
@@ -48,10 +46,6 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
     write_abi_file(
         &out_dir.join("quartic_whir_success_statement.abi"),
         &abi_statement,
-    )?;
-    write_abi_file(
-        &out_dir.join("quartic_whir_success_config.abi"),
-        &abi_config,
     )?;
     write_abi_file(&out_dir.join("quartic_whir_success_proof.abi"), &abi_proof)?;
     write_abi_file(
