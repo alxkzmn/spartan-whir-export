@@ -9,7 +9,6 @@ WIP workspace with all modules side-by-side for convenience: [spartan-whir-dev](
 | ----------------------------------------------- | ------ | -------------------------------------------------- |
 | `quartic_whir_success_proof.abi`                | ABI    | Valid WHIR proof (quartic extension)               |
 | `quartic_whir_success_statement.abi`            | ABI    | Statement matching the success proof               |
-| `quartic_whir_success_config.abi`               | ABI    | Expanded WHIR config for the success proof         |
 | `quartic_whir_failure_bad_commitment_proof.abi` | ABI    | Tampered proof (mutated initial commitment)        |
 | `spartan_placeholder_instance.abi`              | ABI    | Empty Spartan instance for schema testing          |
 | `spartan_placeholder_proof.abi`                 | ABI    | Spartan proof wrapping the real PCS proof          |
@@ -37,7 +36,7 @@ cargo run --bin export-fixtures -p spartan-whir-export -- sol-spartan-whir/testd
 | `lib.rs`                 | ABI struct definitions (`sol!` macro) and constants           |
 | `quartic_fixture.rs`     | Builds a complete quartic WHIR prove+verify round             |
 | `transcript.rs`          | `TraceChallenger` — logging wrapper around `KeccakChallenger` |
-| `abi_export.rs`          | Converts Rust proof/config/statement types to ABI structs     |
+| `abi_export.rs`          | Converts Rust proof/statement types to ABI structs            |
 | `vectors.rs`             | Generates field arithmetic and Merkle test vectors            |
 | `utils.rs`               | Shared helpers (hex encoding, extension packing, file I/O)    |
 | `bin/export_fixtures.rs` | CLI entry point that wires everything together                |

@@ -1,18 +1,16 @@
 use alloy_primitives::U256;
 use anyhow::{ensure, Context};
 use p3_field::BasedVectorSpace;
-use spartan_whir::{
-    effective_digest_bytes_for_security_bits, engine::F, SecurityConfig, SoundnessAssumption,
-};
+use spartan_whir::engine::F;
 use whir_p3::whir::proof::{
     QueryBatchOpening as RawQueryBatchOpening, SumcheckData as RawSumcheckData,
 };
 
 use crate::{
-    quartic_fixture::{RawWhirProof4, WhirConfig4, EF4},
+    quartic_fixture::{RawWhirProof4, EF4},
     utils::{pack_extension_u256, to_bytes32_digest, to_u256_base, to_u256_usize},
-    ExpandedWhirConfig, QueryBatchOpening, RoundConfig, SpartanInstance, SpartanProof,
-    SumcheckData, WhirProof, WhirRoundProof, WhirStatement, DIGEST_ELEMS,
+    QueryBatchOpening, SpartanInstance, SpartanProof, SumcheckData, WhirProof, WhirRoundProof,
+    WhirStatement, DIGEST_ELEMS,
 };
 
 pub fn proof_to_abi(raw_proof: &RawWhirProof4) -> anyhow::Result<WhirProof> {
@@ -79,35 +77,6 @@ pub fn proof_to_abi(raw_proof: &RawWhirProof4) -> anyhow::Result<WhirProof> {
     })
 }
 
-pub fn config_to_abi(
-    config: &WhirConfig4,
-    security: SecurityConfig,
-    whir_fs_pattern: &[F],
-) -> ExpandedWhirConfig {
-    ExpandedWhirConfig {
-        numVariables: to_u256_usize(config.num_variables),
-        securityLevel: to_u256_usize(config.security_level),
-        maxPowBits: to_u256_usize(config.max_pow_bits),
-        commitmentOodSamples: to_u256_usize(config.commitment_ood_samples),
-        startingLogInvRate: to_u256_usize(config.starting_log_inv_rate),
-        startingFoldingPowBits: to_u256_usize(config.starting_folding_pow_bits),
-        rsDomainInitialReductionFactor: to_u256_usize(config.rs_domain_initial_reduction_factor),
-        finalSumcheckRounds: to_u256_usize(config.final_sumcheck_rounds),
-        soundnessAssumption: soundness_tag(security.soundness_assumption),
-        merkleSecurityBits: security.merkle_security_bits,
-        effectiveDigestBytes: effective_digest_bytes_for_security_bits(
-            security.merkle_security_bits as usize,
-        ) as u8,
-        whirFsPattern: whir_fs_pattern.iter().copied().map(to_u256_base).collect(),
-        roundParameters: config
-            .round_parameters
-            .iter()
-            .map(round_config_to_abi)
-            .collect(),
-        finalRoundConfig: round_config_to_abi(&config.final_round_config()),
-    }
-}
-
 pub fn statement_to_abi(points: &[Vec<EF4>], evaluations: &[EF4]) -> WhirStatement {
     WhirStatement {
         points: points
@@ -153,19 +122,6 @@ where
             .copied()
             .map(to_u256_base)
             .collect(),
-    }
-}
-
-fn round_config_to_abi(round: &whir_p3::whir::parameters::RoundConfig<F>) -> RoundConfig {
-    RoundConfig {
-        powBits: to_u256_usize(round.pow_bits),
-        foldingPowBits: to_u256_usize(round.folding_pow_bits),
-        numQueries: to_u256_usize(round.num_queries),
-        oodSamples: to_u256_usize(round.ood_samples),
-        numVariables: to_u256_usize(round.num_variables),
-        foldingFactor: to_u256_usize(round.folding_factor),
-        domainSize: to_u256_usize(round.domain_size),
-        foldedDomainGen: to_u256_base(round.folded_domain_gen),
     }
 }
 
@@ -225,12 +181,4 @@ where
     };
 
     Ok(abi)
-}
-
-fn soundness_tag(soundness: SoundnessAssumption) -> u8 {
-    match soundness {
-        SoundnessAssumption::UniqueDecoding => 0,
-        SoundnessAssumption::JohnsonBound => 1,
-        SoundnessAssumption::CapacityBound => 2,
-    }
 }
