@@ -1,6 +1,6 @@
 use anyhow::ensure;
 use p3_commit::Mmcs;
-use p3_field::{BasedVectorSpace, Field, PrimeCharacteristicRing, PrimeField32};
+use p3_field::{BasedVectorSpace, ExtensionField, Field, PrimeCharacteristicRing, PrimeField32};
 use p3_matrix::dense::RowMajorMatrix;
 use p3_merkle_tree::MerkleTreeMmcs;
 use p3_symmetric::PseudoCompressionFunction;
@@ -11,6 +11,10 @@ use spartan_whir::{
 };
 use whir_p3::whir::merkle_multiproof::{
     build_multiproof_from_paths, compute_root_from_multiproof, hash_leaf_base,
+};
+use whir_p3::{
+    poly::{evals::EvaluationsList, multilinear::MultilinearPoint},
+    sumcheck::lagrange::extrapolate_012,
 };
 
 use crate::{
@@ -48,12 +52,44 @@ pub struct ExtensionFieldVector {
     pub packed_inv: String,
 }
 
+/// Extension-field helper vector for `extrapolate_012`.
+#[derive(Debug, Serialize)]
+pub struct ExtensionExtrapolateVector {
+    pub packed_e0: String,
+    pub packed_e1: String,
+    pub packed_e2: String,
+    pub packed_r: String,
+    pub packed_result: String,
+}
+
+/// Extension-field helper vector for equality-polynomial evaluation.
+#[derive(Debug, Serialize)]
+pub struct ExtensionEqPolyVector {
+    pub packed_p: Vec<String>,
+    pub packed_q: Vec<String>,
+    pub packed_result: String,
+}
+
+/// Extension-field helper vector for multilinear hypercube evaluation.
+#[derive(Debug, Serialize)]
+pub struct ExtensionHypercubeVector {
+    pub packed_evals: Vec<String>,
+    pub packed_point: Vec<String>,
+    pub packed_result: String,
+}
+
 /// Top-level JSON structure for field arithmetic test vectors (base, quartic, octic).
 #[derive(Debug, Serialize)]
 pub struct FieldVectorFile {
     pub base: Vec<BaseFieldVector>,
     pub quartic: Vec<ExtensionFieldVector>,
     pub octic: Vec<ExtensionFieldVector>,
+    pub quartic_extrapolate: Vec<ExtensionExtrapolateVector>,
+    pub quartic_eq_poly: Vec<ExtensionEqPolyVector>,
+    pub quartic_hypercube: Vec<ExtensionHypercubeVector>,
+    pub octic_extrapolate: Vec<ExtensionExtrapolateVector>,
+    pub octic_eq_poly: Vec<ExtensionEqPolyVector>,
+    pub octic_hypercube: Vec<ExtensionHypercubeVector>,
 }
 
 /// Leaf-hash test vector: field-element row and the Keccak digest produced by `hash_leaf_base`.
@@ -144,11 +180,28 @@ pub fn generate_field_vectors() -> FieldVectorFile {
 
     let quartic = generate_extension_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let octic = generate_extension_vectors::<OcticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quartic_extrapolate =
+        generate_extrapolate_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quartic_eq_poly =
+        generate_eq_poly_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quartic_hypercube =
+        generate_hypercube_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let octic_extrapolate =
+        generate_extrapolate_vectors::<OcticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let octic_eq_poly = generate_eq_poly_vectors::<OcticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let octic_hypercube =
+        generate_hypercube_vectors::<OcticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
 
     FieldVectorFile {
         base,
         quartic,
         octic,
+        quartic_extrapolate,
+        quartic_eq_poly,
+        quartic_hypercube,
+        octic_extrapolate,
+        octic_eq_poly,
+        octic_hypercube,
     }
 }
 
@@ -283,6 +336,88 @@ where
     out
 }
 
+fn generate_extrapolate_vectors<EF>(
+    rng: &mut XorShift64,
+    count: usize,
+) -> Vec<ExtensionExtrapolateVector>
+where
+    EF: Field + BasedVectorSpace<F> + Copy,
+{
+    let mut out = Vec::with_capacity(count);
+    for _ in 0..count {
+        let e0 = random_extension::<EF>(rng, false);
+        let e1 = random_extension::<EF>(rng, false);
+        let e2 = random_extension::<EF>(rng, false);
+        let r = random_extension::<EF>(rng, false);
+        let result = extrapolate_012(e0, e1, e2, r);
+
+        out.push(ExtensionExtrapolateVector {
+            packed_e0: u256_hex(pack_extension_u256(&e0)),
+            packed_e1: u256_hex(pack_extension_u256(&e1)),
+            packed_e2: u256_hex(pack_extension_u256(&e2)),
+            packed_r: u256_hex(pack_extension_u256(&r)),
+            packed_result: u256_hex(pack_extension_u256(&result)),
+        });
+    }
+    out
+}
+
+fn generate_eq_poly_vectors<EF>(rng: &mut XorShift64, count: usize) -> Vec<ExtensionEqPolyVector>
+where
+    EF: Field + BasedVectorSpace<F> + Copy,
+{
+    let mut out = Vec::with_capacity(count);
+    for i in 0..count {
+        let dimension = (i % 4) + 1;
+        let p = random_extension_vec::<EF>(rng, dimension);
+        let q = random_extension_vec::<EF>(rng, dimension);
+        let result = MultilinearPoint::<EF>::eval_eq(&p, &q);
+
+        out.push(ExtensionEqPolyVector {
+            packed_p: p
+                .iter()
+                .map(|value| u256_hex(pack_extension_u256(value)))
+                .collect(),
+            packed_q: q
+                .iter()
+                .map(|value| u256_hex(pack_extension_u256(value)))
+                .collect(),
+            packed_result: u256_hex(pack_extension_u256(&result)),
+        });
+    }
+    out
+}
+
+fn generate_hypercube_vectors<EF>(
+    rng: &mut XorShift64,
+    count: usize,
+) -> Vec<ExtensionHypercubeVector>
+where
+    EF: Field + BasedVectorSpace<F> + ExtensionField<F> + Copy + Send + Sync,
+{
+    let mut out = Vec::with_capacity(count);
+    for i in 0..count {
+        let num_variables = (i % 4) + 1;
+        let evals = random_extension_vec::<EF>(rng, 1 << num_variables);
+        let point = random_extension_vec::<EF>(rng, num_variables);
+        let result = EvaluationsList::new(evals.clone())
+            .evaluate_hypercube_ext::<F>(&MultilinearPoint::new(point.clone()));
+
+        out.push(ExtensionHypercubeVector {
+            packed_evals: evals
+                .iter()
+                .map(|value| u256_hex(pack_extension_u256(value)))
+                .collect(),
+            packed_point: point
+                .iter()
+                .map(|value| u256_hex(pack_extension_u256(value)))
+                .collect(),
+            packed_result: u256_hex(pack_extension_u256(&result)),
+        });
+    }
+    out
+}
+
 fn random_extension<EF>(rng: &mut XorShift64, nonzero: bool) -> EF
 where
     EF: Field + BasedVectorSpace<F>,
@@ -293,4 +428,13 @@ where
             return candidate;
         }
     }
+}
+
+fn random_extension_vec<EF>(rng: &mut XorShift64, len: usize) -> Vec<EF>
+where
+    EF: Field + BasedVectorSpace<F>,
+{
+    (0..len)
+        .map(|_| random_extension::<EF>(rng, false))
+        .collect()
 }
