@@ -1,0 +1,65 @@
+pub mod abi_export;
+pub mod quartic_fixture;
+pub mod transcript;
+pub mod utils;
+pub mod vectors;
+
+use alloy_sol_types::sol;
+
+pub const DIGEST_ELEMS: usize = 4;
+
+sol! {
+    struct QueryBatchOpening {
+        uint8 kind;
+        uint256 numQueries;
+        uint256 rowLen;
+        uint256[] values;
+        bytes32[] decommitments;
+    }
+
+    struct SumcheckData {
+        uint256[] polynomialEvals;
+        uint256[] powWitnesses;
+    }
+
+    struct WhirRoundProof {
+        bytes32 commitment;
+        uint256[] oodAnswers;
+        uint256 powWitness;
+        QueryBatchOpening queryBatch;
+        SumcheckData sumcheck;
+    }
+
+    struct WhirProof {
+        bytes32 initialCommitment;
+        uint256[] initialOodAnswers;
+        SumcheckData initialSumcheck;
+        WhirRoundProof[] rounds;
+        uint256[] finalPoly;
+        uint256 finalPowWitness;
+        bool finalQueryBatchPresent;
+        QueryBatchOpening finalQueryBatch;
+        bool finalSumcheckPresent;
+        SumcheckData finalSumcheck;
+    }
+
+    struct WhirStatement {
+        uint256[][] points;
+        uint256[] evaluations;
+    }
+
+    struct SpartanInstance {
+        uint256[] publicInputs;
+        bytes32 witnessCommitment;
+    }
+
+    struct SpartanProof {
+        uint256[] outerSumcheckPolys;
+        uint256[3] outerClaims;
+        uint256[] innerSumcheckPolys;
+        uint256 witnessEval;
+        WhirProof pcsProof;
+    }
+}
+
+pub const KOALABEAR_MODULUS: u32 = 0x7f00_0001;
