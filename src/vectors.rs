@@ -10,7 +10,7 @@ use spartan_whir::{
     KeccakFieldHash, KeccakNodeCompress,
 };
 use whir_p3::whir::merkle_multiproof::{
-    build_multiproof_from_paths, compute_root_from_multiproof, hash_leaf_base,
+    build_linearized_multiproof_from_paths, compute_root_from_linearized_multiproof, hash_leaf_base,
 };
 use whir_p3::{
     poly::{evals::EvaluationsList, multilinear::MultilinearPoint},
@@ -268,8 +268,9 @@ pub fn generate_merkle_vectors(effective_digest_bytes: usize) -> anyhow::Result<
         opening_paths.push(opening.opening_proof);
     }
 
-    let multiproof = build_multiproof_from_paths::<u64, DIGEST_ELEMS>(&indices, opening_paths)
-        .map_err(|err| anyhow::anyhow!("failed to build multiproof: {err:?}"))?;
+    let multiproof =
+        build_linearized_multiproof_from_paths::<u64, DIGEST_ELEMS>(&indices, opening_paths)
+            .map_err(|err| anyhow::anyhow!("failed to build linearized proof: {err:?}"))?;
 
     let multiproof_leaf_hashes: Vec<[u64; DIGEST_ELEMS]> = opened_rows
         .iter()
@@ -277,18 +278,18 @@ pub fn generate_merkle_vectors(effective_digest_bytes: usize) -> anyhow::Result<
         .collect();
 
     let depth = height.ilog2() as usize;
-    let recomputed_root = compute_root_from_multiproof::<u64, _, DIGEST_ELEMS>(
+    let recomputed_root = compute_root_from_linearized_multiproof::<u64, _, DIGEST_ELEMS>(
         &indices,
         &multiproof_leaf_hashes,
         depth,
         &multiproof.decommitments,
         |pair| compress.compress(pair),
     )
-    .map_err(|err| anyhow::anyhow!("failed to recompute multiproof root: {err:?}"))?;
+    .map_err(|err| anyhow::anyhow!("failed to recompute linearized proof root: {err:?}"))?;
 
     ensure!(
         recomputed_root == expected_root,
-        "recomputed multiproof root does not match expected root"
+        "recomputed linearized proof root does not match expected root"
     );
 
     let multiproof_vector = MerkleMultiproofVector {
