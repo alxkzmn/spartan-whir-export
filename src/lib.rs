@@ -5,6 +5,7 @@ pub mod spartan_context_fixture;
 pub mod transcript;
 pub mod utils;
 pub mod vectors;
+pub mod whir_blob_export;
 
 use alloy_sol_types::sol;
 use spartan_whir::WhirParams;
