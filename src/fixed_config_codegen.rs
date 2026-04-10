@@ -107,12 +107,12 @@ pub fn generate_quartic_fixed_config_source(fixture: &QuarticFixture) -> String 
         "\n    function observePattern(KeccakChallenger.State memory challenger) internal pure {{"
     )
     .unwrap();
-    // Emit a single bulk observeBytes with pre-encoded Montgomery LE bytes.
+    // Emit a single bulk observeBytes with pre-encoded canonical LE bytes.
     // This is much cheaper than individual observeBase calls (~15k gas savings for 68 elements).
     let hex_blob: String = fixture
         .whir_fs_pattern
         .iter()
-        .flat_map(|v| v.to_unique_u32().to_le_bytes())
+        .flat_map(|v| v.as_canonical_u32().to_le_bytes())
         .map(|b| format!("{b:02x}"))
         .collect();
     writeln!(
