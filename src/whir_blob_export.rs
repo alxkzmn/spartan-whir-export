@@ -161,9 +161,9 @@ pub fn encode_quartic_whir_blob_v1(
         effective_digest_bytes,
     );
     for answer in &raw_proof.initial_ood_answers {
-        put_ext4(&mut out, answer);
+        put_ext4_le(&mut out, answer);
     }
-    put_sumcheck_evals(&mut out, &raw_proof.initial_sumcheck.polynomial_evaluations);
+    put_sumcheck_evals_le(&mut out, &raw_proof.initial_sumcheck.polynomial_evaluations);
 
     encode_round0(&mut out, round0, effective_digest_bytes);
     encode_round1(&mut out, round1, effective_digest_bytes);
@@ -171,9 +171,9 @@ pub fn encode_quartic_whir_blob_v1(
     for value in final_poly.as_slice() {
         put_ext4(&mut out, value);
     }
-    put_base(&mut out, raw_proof.final_pow_witness);
+    put_base_le(&mut out, raw_proof.final_pow_witness);
     encode_final_query_batch(&mut out, final_query_batch, effective_digest_bytes);
-    put_sumcheck_evals(&mut out, &final_sumcheck.polynomial_evaluations);
+    put_sumcheck_evals_le(&mut out, &final_sumcheck.polynomial_evaluations);
 
     Ok(out)
 }
@@ -185,9 +185,9 @@ fn encode_round0(
 ) {
     put_digest(out, &round.commitment, effective_digest_bytes);
     for answer in &round.ood_answers {
-        put_ext4(out, answer);
+        put_ext4_le(out, answer);
     }
-    put_base(out, round.pow_witness);
+    put_base_le(out, round.pow_witness);
 
     match round
         .query_batch
@@ -207,7 +207,7 @@ fn encode_round0(
         RawQueryBatchOpening::Extension { .. } => unreachable!(),
     }
 
-    put_sumcheck_evals(out, &round.sumcheck.polynomial_evaluations);
+    put_sumcheck_evals_le(out, &round.sumcheck.polynomial_evaluations);
 }
 
 fn encode_round1(
@@ -217,9 +217,9 @@ fn encode_round1(
 ) {
     put_digest(out, &round.commitment, effective_digest_bytes);
     for answer in &round.ood_answers {
-        put_ext4(out, answer);
+        put_ext4_le(out, answer);
     }
-    put_base(out, round.pow_witness);
+    put_base_le(out, round.pow_witness);
 
     match round
         .query_batch
@@ -239,9 +239,9 @@ fn encode_round1(
         RawQueryBatchOpening::Base { .. } => unreachable!(),
     }
 
-    put_sumcheck_evals(out, &round.sumcheck.polynomial_evaluations);
+    put_sumcheck_evals_le(out, &round.sumcheck.polynomial_evaluations);
     for witness in &round.sumcheck.pow_witnesses {
-        put_base(out, *witness);
+        put_base_le(out, *witness);
     }
 }
 
@@ -336,10 +336,10 @@ fn validate_final_query_batch(
     }
 }
 
-fn put_sumcheck_evals(out: &mut Vec<u8>, polynomial_evaluations: &[[EF4; 2]]) {
+fn put_sumcheck_evals_le(out: &mut Vec<u8>, polynomial_evaluations: &[[EF4; 2]]) {
     for [c0, c2] in polynomial_evaluations {
-        put_ext4(out, c0);
-        put_ext4(out, c2);
+        put_ext4_le(out, c0);
+        put_ext4_le(out, c2);
     }
 }
 
@@ -355,12 +355,25 @@ fn put_base(out: &mut Vec<u8>, value: F) {
     out.extend_from_slice(&value.as_canonical_u32().to_be_bytes());
 }
 
+fn put_base_le(out: &mut Vec<u8>, value: F) {
+    out.extend_from_slice(&value.as_canonical_u32().to_le_bytes());
+}
+
 fn put_ext4<EF>(out: &mut Vec<u8>, value: &EF)
 where
     EF: BasedVectorSpace<F> + Copy,
 {
     let bytes = pack_extension_u256(value).to_be_bytes::<32>();
     out.extend_from_slice(&bytes[..16]);
+}
+
+fn put_ext4_le<EF>(out: &mut Vec<u8>, value: &EF)
+where
+    EF: BasedVectorSpace<F> + Copy,
+{
+    for coeff in value.as_basis_coefficients_slice() {
+        out.extend_from_slice(&coeff.as_canonical_u32().to_le_bytes());
+    }
 }
 
 fn put_digest(out: &mut Vec<u8>, digest: &[u64; DIGEST_ELEMS], effective_digest_bytes: usize) {
