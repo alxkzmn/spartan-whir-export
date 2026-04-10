@@ -9,9 +9,7 @@ use spartan_whir::{
     engine::{OcticBinExtension, QuarticBinExtension, F},
     KeccakFieldHash, KeccakNodeCompress,
 };
-use whir_p3::whir::merkle_multiproof::{
-    build_multiproof_from_paths, compute_root_from_multiproof, hash_leaf_base,
-};
+use whir_p3::whir::merkle_multiproof::hash_leaf_base;
 use whir_p3::{
     poly::{evals::EvaluationsList, multilinear::MultilinearPoint},
     sumcheck::lagrange::extrapolate_012,
@@ -107,7 +105,7 @@ pub struct MerkleNodeCompressionVector {
     pub parent: String,
 }
 
-/// Multiproof test vector: leaf indices, opened rows, sibling decommitments, and expected root.
+/// Linear-path Merkle test vector: leaf indices, opened rows, sibling decommitments, and expected root.
 #[derive(Debug, Serialize)]
 pub struct MerkleMultiproofVector {
     pub depth: usize,
@@ -268,28 +266,42 @@ pub fn generate_merkle_vectors(effective_digest_bytes: usize) -> anyhow::Result<
         opening_paths.push(opening.opening_proof);
     }
 
-    let multiproof = build_multiproof_from_paths::<u64, DIGEST_ELEMS>(&indices, opening_paths)
-        .map_err(|err| anyhow::anyhow!("failed to build multiproof: {err:?}"))?;
-
     let multiproof_leaf_hashes: Vec<[u64; DIGEST_ELEMS]> = opened_rows
         .iter()
         .map(|row| hash_leaf_base::<F, u64, KeccakFieldHash, DIGEST_ELEMS>(&hasher, row))
         .collect();
 
     let depth = height.ilog2() as usize;
-    let recomputed_root = compute_root_from_multiproof::<u64, _, DIGEST_ELEMS>(
-        &indices,
-        &multiproof_leaf_hashes,
-        depth,
-        &multiproof.decommitments,
-        |pair| compress.compress(pair),
-    )
-    .map_err(|err| anyhow::anyhow!("failed to recompute multiproof root: {err:?}"))?;
+    let mut decommitments = Vec::new();
+    for ((&index, leaf_hash), path) in indices
+        .iter()
+        .zip(multiproof_leaf_hashes.iter())
+        .zip(opening_paths.iter())
+    {
+        ensure!(
+            path.len() == depth,
+            "opening path length {} does not match expected depth {}",
+            path.len(),
+            depth
+        );
 
-    ensure!(
-        recomputed_root == expected_root,
-        "recomputed multiproof root does not match expected root"
-    );
+        let mut node = index;
+        let mut hash = *leaf_hash;
+        for sibling in path {
+            decommitments.push(digest_hex(sibling));
+            hash = if (node & 1) == 0 {
+                compress.compress([hash, *sibling])
+            } else {
+                compress.compress([*sibling, hash])
+            };
+            node >>= 1;
+        }
+
+        ensure!(
+            hash == expected_root,
+            "recomputed linear path root does not match expected root"
+        );
+    }
 
     let multiproof_vector = MerkleMultiproofVector {
         depth,
@@ -298,7 +310,7 @@ pub fn generate_merkle_vectors(effective_digest_bytes: usize) -> anyhow::Result<
             .into_iter()
             .map(|row| row.into_iter().map(|v| v.as_canonical_u32()).collect())
             .collect(),
-        decommitments: multiproof.decommitments.iter().map(digest_hex).collect(),
+        decommitments,
         expected_root: digest_hex(&expected_root),
     };
 

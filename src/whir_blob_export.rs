@@ -1,5 +1,5 @@
-use anyhow::{ensure, Context};
 use alloy_primitives::{FixedBytes, U256};
+use anyhow::{ensure, Context};
 use p3_field::{BasedVectorSpace, PrimeField32};
 use spartan_whir::{digest_to_bytes, engine::F};
 use whir_p3::whir::proof::QueryBatchOpening as RawQueryBatchOpening;
@@ -162,9 +162,9 @@ pub fn encode_quartic_whir_blob_v1(
         effective_digest_bytes,
     );
     for answer in &raw_proof.initial_ood_answers {
-        put_ext4(&mut out, answer);
+        put_ext4_le(&mut out, answer);
     }
-    put_sumcheck_evals(&mut out, &raw_proof.initial_sumcheck.polynomial_evaluations);
+    put_sumcheck_evals_le(&mut out, &raw_proof.initial_sumcheck.polynomial_evaluations);
 
     encode_round0(&mut out, round0, effective_digest_bytes);
     encode_round1(&mut out, round1, effective_digest_bytes);
@@ -172,9 +172,9 @@ pub fn encode_quartic_whir_blob_v1(
     for value in final_poly.as_slice() {
         put_ext4(&mut out, value);
     }
-    put_base(&mut out, raw_proof.final_pow_witness);
+    put_base_le(&mut out, raw_proof.final_pow_witness);
     encode_final_query_batch(&mut out, final_query_batch, effective_digest_bytes);
-    put_sumcheck_evals(&mut out, &final_sumcheck.polynomial_evaluations);
+    put_sumcheck_evals_le(&mut out, &final_sumcheck.polynomial_evaluations);
 
     Ok(out)
 }
@@ -296,11 +296,7 @@ pub fn encode_quartic_whir_blob_v1_from_abi(
     }
     put_ext4_abi(&mut out, statement.evaluations[0])?;
 
-    put_digest_abi(
-        &mut out,
-        &proof.initialCommitment,
-        effective_digest_bytes,
-    );
+    put_digest_abi(&mut out, &proof.initialCommitment, effective_digest_bytes);
     for answer in &proof.initialOodAnswers {
         put_ext4_abi(&mut out, *answer)?;
     }
@@ -326,9 +322,9 @@ fn encode_round0(
 ) {
     put_digest(out, &round.commitment, effective_digest_bytes);
     for answer in &round.ood_answers {
-        put_ext4(out, answer);
+        put_ext4_le(out, answer);
     }
-    put_base(out, round.pow_witness);
+    put_base_le(out, round.pow_witness);
 
     match round
         .query_batch
@@ -348,7 +344,7 @@ fn encode_round0(
         RawQueryBatchOpening::Extension { .. } => unreachable!(),
     }
 
-    put_sumcheck_evals(out, &round.sumcheck.polynomial_evaluations);
+    put_sumcheck_evals_le(out, &round.sumcheck.polynomial_evaluations);
 }
 
 fn encode_round1(
@@ -358,9 +354,9 @@ fn encode_round1(
 ) {
     put_digest(out, &round.commitment, effective_digest_bytes);
     for answer in &round.ood_answers {
-        put_ext4(out, answer);
+        put_ext4_le(out, answer);
     }
-    put_base(out, round.pow_witness);
+    put_base_le(out, round.pow_witness);
 
     match round
         .query_batch
@@ -380,9 +376,9 @@ fn encode_round1(
         RawQueryBatchOpening::Base { .. } => unreachable!(),
     }
 
-    put_sumcheck_evals(out, &round.sumcheck.polynomial_evaluations);
+    put_sumcheck_evals_le(out, &round.sumcheck.polynomial_evaluations);
     for witness in &round.sumcheck.pow_witnesses {
-        put_base(out, *witness);
+        put_base_le(out, *witness);
     }
 }
 
@@ -566,28 +562,37 @@ fn encode_final_query_batch_abi(
     Ok(())
 }
 
-fn encode_query_values_base_abi(out: &mut Vec<u8>, query_batch: &QueryBatchOpening) -> anyhow::Result<()> {
+fn encode_query_values_base_abi(
+    out: &mut Vec<u8>,
+    query_batch: &QueryBatchOpening,
+) -> anyhow::Result<()> {
     for value in &query_batch.values {
         put_base_abi(out, *value)?;
     }
     Ok(())
 }
 
-fn encode_query_values_ext4_abi(out: &mut Vec<u8>, query_batch: &QueryBatchOpening) -> anyhow::Result<()> {
+fn encode_query_values_ext4_abi(
+    out: &mut Vec<u8>,
+    query_batch: &QueryBatchOpening,
+) -> anyhow::Result<()> {
     for value in &query_batch.values {
         put_ext4_abi(out, *value)?;
     }
     Ok(())
 }
 
-fn put_sumcheck_evals(out: &mut Vec<u8>, polynomial_evaluations: &[[EF4; 2]]) {
+fn put_sumcheck_evals_le(out: &mut Vec<u8>, polynomial_evaluations: &[[EF4; 2]]) {
     for [c0, c2] in polynomial_evaluations {
-        put_ext4(out, c0);
-        put_ext4(out, c2);
+        put_ext4_le(out, c0);
+        put_ext4_le(out, c2);
     }
 }
 
-fn put_sumcheck_evals_abi(out: &mut Vec<u8>, polynomial_evaluations: &[U256]) -> anyhow::Result<()> {
+fn put_sumcheck_evals_abi(
+    out: &mut Vec<u8>,
+    polynomial_evaluations: &[U256],
+) -> anyhow::Result<()> {
     ensure!(
         polynomial_evaluations.len() % 2 == 0,
         "sumcheck polynomial evaluations must be c0/c2 pairs"
@@ -611,10 +616,17 @@ fn put_base(out: &mut Vec<u8>, value: F) {
 }
 
 fn put_base_abi(out: &mut Vec<u8>, value: U256) -> anyhow::Result<()> {
-    ensure!(value <= U256::from(u32::MAX), "base field value exceeds 32 bits");
+    ensure!(
+        value <= U256::from(u32::MAX),
+        "base field value exceeds 32 bits"
+    );
     let bytes = value.to_be_bytes::<32>();
     out.extend_from_slice(&bytes[28..]);
     Ok(())
+}
+
+fn put_base_le(out: &mut Vec<u8>, value: F) {
+    out.extend_from_slice(&value.as_canonical_u32().to_le_bytes());
 }
 
 fn put_ext4<EF>(out: &mut Vec<u8>, value: &EF)
@@ -627,9 +639,21 @@ where
 
 fn put_ext4_abi(out: &mut Vec<u8>, value: U256) -> anyhow::Result<()> {
     let bytes = value.to_be_bytes::<32>();
-    ensure!(bytes[16..].iter().all(|&byte| byte == 0), "packed ext4 has non-zero low half");
+    ensure!(
+        bytes[16..].iter().all(|&byte| byte == 0),
+        "packed ext4 has non-zero low half"
+    );
     out.extend_from_slice(&bytes[..16]);
     Ok(())
+}
+
+fn put_ext4_le<EF>(out: &mut Vec<u8>, value: &EF)
+where
+    EF: BasedVectorSpace<F> + Copy,
+{
+    for coeff in value.as_basis_coefficients_slice() {
+        out.extend_from_slice(&coeff.as_canonical_u32().to_le_bytes());
+    }
 }
 
 fn put_digest(out: &mut Vec<u8>, digest: &[u64; DIGEST_ELEMS], effective_digest_bytes: usize) {
@@ -637,10 +661,6 @@ fn put_digest(out: &mut Vec<u8>, digest: &[u64; DIGEST_ELEMS], effective_digest_
     out.extend_from_slice(&bytes[..effective_digest_bytes]);
 }
 
-fn put_digest_abi(
-    out: &mut Vec<u8>,
-    digest: &FixedBytes<32>,
-    effective_digest_bytes: usize,
-) {
+fn put_digest_abi(out: &mut Vec<u8>, digest: &FixedBytes<32>, effective_digest_bytes: usize) {
     out.extend_from_slice(&digest[..effective_digest_bytes]);
 }
