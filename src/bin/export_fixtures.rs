@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use alloy_primitives::FixedBytes;
 use anyhow::Context;
 use serde::Serialize;
 use spartan_whir::effective_digest_bytes_for_security_bits;
@@ -17,7 +18,9 @@ use spartan_whir_export::{
     transcript::{events_to_abi, TranscriptTraceFile},
     utils::{extension_coeffs_u32, to_u256_base, to_u256_usize, write_abi_file, write_json_file},
     vectors::{generate_field_vectors, generate_merkle_vectors},
-    ChallengerTranscriptTrace, SpartanTranscriptContextFixture, KOALABEAR_MODULUS,
+    ChallengerTranscriptTrace, MerkleLeafHashFixture, MerkleMultiproofFixture,
+    MerkleNodeCompressionFixture, MerkleVectorFixture, SpartanTranscriptContextFixture,
+    KOALABEAR_MODULUS,
 };
 
 /// Summary metadata written alongside the fixtures for human inspection.
@@ -28,6 +31,18 @@ struct Metadata {
     whir_fs_pattern_length: usize,
     fixture_family: &'static str,
     notes: Vec<&'static str>,
+}
+
+fn bytes32_from_hex(hex_str: &str) -> anyhow::Result<FixedBytes<32>> {
+    let encoded = hex_str.strip_prefix("0x").unwrap_or(hex_str);
+    let bytes = hex::decode(encoded)?;
+    let array: [u8; 32] = bytes.try_into().map_err(|_| {
+        anyhow::anyhow!(
+            "expected 32-byte hex digest, got {} bytes",
+            encoded.len() / 2
+        )
+    })?;
+    Ok(array.into())
 }
 
 fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
@@ -69,6 +84,61 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
         effective_digest_bytes_for_security_bits(quartic.security.merkle_security_bits as usize);
     let merkle_vectors = generate_merkle_vectors(effective_digest_bytes)?;
     write_json_file(&out_dir.join("merkle_vectors.json"), &merkle_vectors)?;
+    let merkle_vectors_abi = MerkleVectorFixture {
+        effectiveDigestBytes: to_u256_usize(merkle_vectors.effective_digest_bytes),
+        leafHashes: merkle_vectors
+            .leaf_hashes
+            .iter()
+            .map(|vector| MerkleLeafHashFixture {
+                values: vector
+                    .values
+                    .iter()
+                    .copied()
+                    .map(|value| alloy_primitives::U256::from(value as usize))
+                    .collect(),
+                digest: bytes32_from_hex(&vector.digest).expect("valid leaf digest"),
+            })
+            .collect(),
+        nodeCompressions: merkle_vectors
+            .node_compressions
+            .iter()
+            .map(|vector| MerkleNodeCompressionFixture {
+                left: bytes32_from_hex(&vector.left).expect("valid node left digest"),
+                right: bytes32_from_hex(&vector.right).expect("valid node right digest"),
+                parent: bytes32_from_hex(&vector.parent).expect("valid node parent digest"),
+            })
+            .collect(),
+        multiproof: MerkleMultiproofFixture {
+            depth: to_u256_usize(merkle_vectors.multiproof.depth),
+            indices: merkle_vectors
+                .multiproof
+                .indices
+                .iter()
+                .copied()
+                .map(to_u256_usize)
+                .collect(),
+            openedRows: merkle_vectors
+                .multiproof
+                .opened_rows
+                .iter()
+                .map(|row| {
+                    row.iter()
+                        .copied()
+                        .map(|value| alloy_primitives::U256::from(value as usize))
+                        .collect()
+                })
+                .collect(),
+            decommitments: merkle_vectors
+                .multiproof
+                .decommitments
+                .iter()
+                .map(|digest| bytes32_from_hex(digest).expect("valid decommitment digest"))
+                .collect(),
+            expectedRoot: bytes32_from_hex(&merkle_vectors.multiproof.expected_root)
+                .expect("valid multiproof root"),
+        },
+    };
+    write_abi_file(&out_dir.join("merkle_vectors.abi"), &merkle_vectors_abi)?;
 
     let transcript_trace = TranscriptTraceFile {
         prover_events: quartic.prover_trace.clone(),
