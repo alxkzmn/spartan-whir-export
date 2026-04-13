@@ -23,6 +23,8 @@ use crate::{
 };
 
 const FIELD_VECTOR_COUNT: usize = 16;
+const EQ_POLY_DIMENSIONS: [usize; 6] = [0, 1, 2, 3, 4, 6];
+const HYPERCUBE_NUM_VARIABLES: [usize; 6] = [0, 1, 2, 3, 4, 5];
 
 /// One KoalaBear base-field arithmetic test vector: two operands and expected results.
 #[derive(Debug, Serialize)]
@@ -370,7 +372,7 @@ where
 {
     let mut out = Vec::with_capacity(count);
     for i in 0..count {
-        let dimension = (i % 4) + 1;
+        let dimension = EQ_POLY_DIMENSIONS[i % EQ_POLY_DIMENSIONS.len()];
         let p = random_extension_vec::<EF>(rng, dimension);
         let q = random_extension_vec::<EF>(rng, dimension);
         let result = MultilinearPoint::<EF>::eval_eq(&p, &q);
@@ -399,7 +401,7 @@ where
 {
     let mut out = Vec::with_capacity(count);
     for i in 0..count {
-        let num_variables = (i % 4) + 1;
+        let num_variables = HYPERCUBE_NUM_VARIABLES[i % HYPERCUBE_NUM_VARIABLES.len()];
         let evals = random_extension_vec::<EF>(rng, 1 << num_variables);
         let point = random_extension_vec::<EF>(rng, num_variables);
         let result = EvaluationsList::new(evals.clone())
