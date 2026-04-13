@@ -1,5 +1,6 @@
 pub mod abi_export;
 pub mod quartic_fixture;
+pub mod spartan_context_fixture;
 pub mod transcript;
 pub mod utils;
 pub mod vectors;
@@ -9,6 +10,38 @@ use alloy_sol_types::sol;
 pub const DIGEST_ELEMS: usize = 4;
 
 sol! {
+    struct ChallengerTranscriptEvent {
+        uint8 op;
+        bytes observedBytes;
+        uint256 arg0;
+        uint256 arg1;
+    }
+
+    struct ChallengerTranscriptTrace {
+        ChallengerTranscriptEvent[] proverEvents;
+        ChallengerTranscriptEvent[] verifierEvents;
+        uint256[] checkpointProver;
+        uint256[] checkpointVerifier;
+        bool checkpointMatch;
+    }
+
+    struct SpartanTranscriptContextFixture {
+        uint256 numCons;
+        uint256 numVars;
+        uint256 numIo;
+        uint32 securityLevelBits;
+        uint32 merkleSecurityBits;
+        uint8 soundnessAssumption;
+        uint32 powBits;
+        uint256 foldingFactor;
+        uint256 startingLogInvRate;
+        uint256 rsDomainInitialReductionFactor;
+        uint256[] publicInputs;
+        bytes preimage;
+        bytes32 digest;
+        uint256[] checkpoint;
+    }
+
     struct QueryBatchOpening {
         uint8 kind;
         uint256 numQueries;

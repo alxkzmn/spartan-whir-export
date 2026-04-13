@@ -13,10 +13,11 @@ use spartan_whir_export::{
     quartic_fixture::{
         build_quartic_fixture, tamper_first_initial_ood_answer, tamper_first_stir_query,
     },
-    transcript::TranscriptTraceFile,
-    utils::{extension_coeffs_u32, write_abi_file, write_json_file},
+    spartan_context_fixture::{build_spartan_context_fixture, soundness_assumption_byte},
+    transcript::{events_to_abi, TranscriptTraceFile},
+    utils::{extension_coeffs_u32, to_u256_base, to_u256_usize, write_abi_file, write_json_file},
     vectors::{generate_field_vectors, generate_merkle_vectors},
-    KOALABEAR_MODULUS,
+    ChallengerTranscriptTrace, SpartanTranscriptContextFixture, KOALABEAR_MODULUS,
 };
 
 /// Summary metadata written alongside the fixtures for human inspection.
@@ -70,8 +71,8 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
     write_json_file(&out_dir.join("merkle_vectors.json"), &merkle_vectors)?;
 
     let transcript_trace = TranscriptTraceFile {
-        prover_events: quartic.prover_trace,
-        verifier_events: quartic.verifier_trace,
+        prover_events: quartic.prover_trace.clone(),
+        verifier_events: quartic.verifier_trace.clone(),
         checkpoint_prover: extension_coeffs_u32(&quartic.checkpoint_prover),
         checkpoint_verifier: extension_coeffs_u32(&quartic.checkpoint_verifier),
         checkpoint_match: quartic.checkpoint_prover == quartic.checkpoint_verifier,
@@ -79,6 +80,59 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
     write_json_file(
         &out_dir.join("transcript_trace_quartic.json"),
         &transcript_trace,
+    )?;
+    let transcript_trace_abi = ChallengerTranscriptTrace {
+        proverEvents: events_to_abi(quartic.prover_trace),
+        verifierEvents: events_to_abi(quartic.verifier_trace),
+        checkpointProver: extension_coeffs_u32(&quartic.checkpoint_prover)
+            .into_iter()
+            .map(|value| alloy_primitives::U256::from(value as usize))
+            .collect(),
+        checkpointVerifier: extension_coeffs_u32(&quartic.checkpoint_verifier)
+            .into_iter()
+            .map(|value| alloy_primitives::U256::from(value as usize))
+            .collect(),
+        checkpointMatch: quartic.checkpoint_prover == quartic.checkpoint_verifier,
+    };
+    write_abi_file(
+        &out_dir.join("transcript_trace_quartic.abi"),
+        &transcript_trace_abi,
+    )?;
+
+    let spartan_context = build_spartan_context_fixture()?;
+    let spartan_context_abi = SpartanTranscriptContextFixture {
+        numCons: to_u256_usize(spartan_context.num_cons),
+        numVars: to_u256_usize(spartan_context.num_vars),
+        numIo: to_u256_usize(spartan_context.num_io),
+        securityLevelBits: spartan_context.security.security_level_bits,
+        merkleSecurityBits: spartan_context.security.merkle_security_bits,
+        soundnessAssumption: soundness_assumption_byte(
+            spartan_context.security.soundness_assumption,
+        ),
+        powBits: spartan_context.whir_params.pow_bits,
+        foldingFactor: to_u256_usize(spartan_context.whir_params.folding_factor),
+        startingLogInvRate: to_u256_usize(spartan_context.whir_params.starting_log_inv_rate),
+        rsDomainInitialReductionFactor: to_u256_usize(
+            spartan_context
+                .whir_params
+                .rs_domain_initial_reduction_factor,
+        ),
+        publicInputs: spartan_context
+            .public_inputs
+            .iter()
+            .copied()
+            .map(to_u256_base)
+            .collect(),
+        preimage: alloy_primitives::Bytes::from(spartan_context.preimage),
+        digest: spartan_context.digest.into(),
+        checkpoint: extension_coeffs_u32(&spartan_context.checkpoint)
+            .into_iter()
+            .map(|value| alloy_primitives::U256::from(value as usize))
+            .collect(),
+    };
+    write_abi_file(
+        &out_dir.join("spartan_transcript_context_quartic.abi"),
+        &spartan_context_abi,
     )?;
 
     let metadata = Metadata {
@@ -91,7 +145,8 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
             "Failure fixture mutates initial commitment to force commitment mismatch.",
             "Failure fixture mutates one STIR query opening while keeping commitments and OOD answers intact.",
             "Failure fixture mutates one initial OOD answer, which also changes the downstream transcript.",
-            "Transcript trace records every observe/sample call with challenger states.",
+            "Transcript trace records every observe/sample call in canonical replay form.",
+            "Spartan transcript fixture records domain-separator preimage, digest, public inputs, and checkpoint.",
             "Field vectors include base/quartic/octic arithmetic tuples.",
             "Merkle vectors include leaf hashes, node compression, and multiproof root checks.",
         ],

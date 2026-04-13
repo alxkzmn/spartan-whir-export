@@ -1,3 +1,4 @@
+use alloy_primitives::Bytes;
 use p3_challenger::{
     CanObserve, CanSample, CanSampleBits, FieldChallenger, GrindingChallenger, HashChallenger,
     SerializingChallenger32,
@@ -8,19 +9,26 @@ use p3_symmetric::Hash;
 use serde::Serialize;
 use spartan_whir::{engine::F, KeccakChallenger};
 
-/// A single Fiat-Shamir transcript operation (observe/sample/grind) with challenger state snapshots.
+use crate::ChallengerTranscriptEvent;
+
+pub const OP_OBSERVE_BYTES: u8 = 0;
+pub const OP_SAMPLE_BASE: u8 = 1;
+pub const OP_SAMPLE_BITS: u8 = 2;
+pub const OP_GRIND: u8 = 3;
+
+/// A single Fiat-Shamir transcript operation in replay-friendly form.
 #[derive(Debug, Clone, Serialize)]
 pub struct TranscriptEvent {
     pub step: usize,
     pub op: &'static str,
-    pub value: String,
-    pub state_before: String,
-    pub state_after: String,
+    pub op_code: u8,
+    pub observed_bytes_hex: String,
+    pub arg0: u64,
+    pub arg1: u64,
 }
 
 /// Logging wrapper around the real `KeccakChallenger`. Every observe, sample,
-/// sample_bits, and grind call is delegated to `inner` and a before/after log
-/// entry is recorded.
+/// sample_bits, and grind call is delegated to `inner` and recorded in canonical form.
 #[derive(Debug, Clone)]
 pub struct TraceChallenger {
     inner: KeccakChallenger,
@@ -54,16 +62,18 @@ impl TraceChallenger {
     fn push_event(
         &mut self,
         op: &'static str,
-        value: String,
-        state_before: String,
-        state_after: String,
+        op_code: u8,
+        observed_bytes: Vec<u8>,
+        arg0: u64,
+        arg1: u64,
     ) {
         self.events.push(TranscriptEvent {
             step: self.events.len(),
             op,
-            value,
-            state_before,
-            state_after,
+            op_code,
+            observed_bytes_hex: hex::encode(observed_bytes),
+            arg0,
+            arg1,
         });
     }
 
@@ -84,49 +94,47 @@ impl Default for TraceChallenger {
 
 impl CanObserve<F> for TraceChallenger {
     fn observe(&mut self, value: F) {
-        let state_before = format!("{:?}", self.inner);
+        let observed_bytes = value.to_unique_u32().to_le_bytes();
         self.observed_base_values.push(value);
         self.inner.observe(value);
-        let state_after = format!("{:?}", self.inner);
         self.push_event(
-            "observe",
-            format!("base:{}", value.as_canonical_u32()),
-            state_before,
-            state_after,
+            "observe_bytes",
+            OP_OBSERVE_BYTES,
+            observed_bytes.to_vec(),
+            value.as_canonical_u32().into(),
+            0,
         );
     }
 }
 
 impl<const N: usize> CanObserve<Hash<F, u8, N>> for TraceChallenger {
     fn observe(&mut self, value: Hash<F, u8, N>) {
-        let state_before = format!("{:?}", self.inner);
-        let payload = format!("hash_u8:{value:?}");
+        let observed_bytes = value.as_ref().to_vec();
         self.inner.observe(value);
-        let state_after = format!("{:?}", self.inner);
-        self.push_event("observe", payload, state_before, state_after);
+        self.push_event("observe_bytes", OP_OBSERVE_BYTES, observed_bytes, 0, 0);
     }
 }
 
 impl<const N: usize> CanObserve<Hash<F, u64, N>> for TraceChallenger {
     fn observe(&mut self, value: Hash<F, u64, N>) {
-        let state_before = format!("{:?}", self.inner);
-        let payload = format!("hash_u64:{value:?}");
+        let mut observed_bytes = Vec::with_capacity(N * 8);
+        for word in value {
+            observed_bytes.extend_from_slice(&word.to_le_bytes());
+        }
         self.inner.observe(value);
-        let state_after = format!("{:?}", self.inner);
-        self.push_event("observe", payload, state_before, state_after);
+        self.push_event("observe_bytes", OP_OBSERVE_BYTES, observed_bytes, 0, 0);
     }
 }
 
 impl CanSample<F> for TraceChallenger {
     fn sample(&mut self) -> F {
-        let state_before = format!("{:?}", self.inner);
         let sampled: F = self.inner.sample();
-        let state_after = format!("{:?}", self.inner);
         self.push_event(
-            "sample",
-            format!("base:{}", sampled.as_canonical_u32()),
-            state_before,
-            state_after,
+            "sample_base",
+            OP_SAMPLE_BASE,
+            Vec::new(),
+            sampled.as_canonical_u32().into(),
+            0,
         );
         sampled
     }
@@ -134,14 +142,13 @@ impl CanSample<F> for TraceChallenger {
 
 impl CanSampleBits<usize> for TraceChallenger {
     fn sample_bits(&mut self, bits: usize) -> usize {
-        let state_before = format!("{:?}", self.inner);
         let sampled = self.inner.sample_bits(bits);
-        let state_after = format!("{:?}", self.inner);
         self.push_event(
             "sample_bits",
-            format!("bits:{bits},value:{sampled}"),
-            state_before,
-            state_after,
+            OP_SAMPLE_BITS,
+            Vec::new(),
+            bits as u64,
+            sampled as u64,
         );
         sampled
     }
@@ -151,17 +158,28 @@ impl GrindingChallenger for TraceChallenger {
     type Witness = F;
 
     fn grind(&mut self, bits: usize) -> Self::Witness {
-        let state_before = format!("{:?}", self.inner);
         let witness = self.inner.grind(bits);
-        let state_after = format!("{:?}", self.inner);
         self.push_event(
             "grind",
-            format!("bits:{bits},witness:{}", witness.as_canonical_u32()),
-            state_before,
-            state_after,
+            OP_GRIND,
+            Vec::new(),
+            bits as u64,
+            witness.as_canonical_u32().into(),
         );
         witness
     }
 }
 
 impl FieldChallenger<F> for TraceChallenger {}
+
+pub fn events_to_abi(events: Vec<TranscriptEvent>) -> Vec<ChallengerTranscriptEvent> {
+    events
+        .into_iter()
+        .map(|event| ChallengerTranscriptEvent {
+            op: event.op_code,
+            observedBytes: Bytes::from(hex::decode(event.observed_bytes_hex).expect("valid hex")),
+            arg0: alloy_primitives::U256::from(event.arg0 as usize),
+            arg1: alloy_primitives::U256::from(event.arg1 as usize),
+        })
+        .collect()
+}

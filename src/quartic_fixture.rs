@@ -163,7 +163,7 @@ pub fn build_quartic_fixture() -> anyhow::Result<QuarticFixture> {
         )
         .map_err(|err| anyhow::anyhow!("prove failed: {err:?}"))?;
 
-    let checkpoint_prover: EF4 = prover_challenger.sample_algebra_element();
+    let checkpoint_prover: EF4 = prover_challenger.clone().sample_algebra_element();
     let prover_trace = prover_challenger.into_events();
 
     let mut verifier_challenger = TraceChallenger::new();
@@ -188,7 +188,7 @@ pub fn build_quartic_fixture() -> anyhow::Result<QuarticFixture> {
         )
         .map_err(|err| anyhow::anyhow!("verify failed: {err:?}"))?;
 
-    let checkpoint_verifier: EF4 = verifier_challenger.sample_algebra_element();
+    let checkpoint_verifier: EF4 = verifier_challenger.clone().sample_algebra_element();
     let verifier_trace = verifier_challenger.into_events();
 
     ensure!(
