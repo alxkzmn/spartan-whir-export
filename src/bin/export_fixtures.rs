@@ -11,6 +11,7 @@ use spartan_whir_export::{
     abi_export::{
         placeholder_spartan_instance, placeholder_spartan_proof, proof_to_abi, statement_to_abi,
     },
+    fixed_config_codegen::generate_quartic_fixed_config_source,
     quartic_fixture::{
         build_quartic_fixture, tamper_first_initial_ood_answer, tamper_first_stir_query,
     },
@@ -18,6 +19,7 @@ use spartan_whir_export::{
     transcript::{events_to_abi, TranscriptTraceFile},
     utils::{extension_coeffs_u32, to_u256_base, to_u256_usize, write_abi_file, write_json_file},
     vectors::{generate_field_vectors, generate_merkle_vectors},
+    whir_blob_export::encode_quartic_whir_blob_v1,
     ChallengerTranscriptTrace, MerkleLeafHashFixture, MerkleMultiproofFixture,
     MerkleNodeCompressionFixture, MerkleVectorFixture, SpartanTranscriptContextFixture,
     KOALABEAR_MODULUS,
@@ -47,6 +49,7 @@ fn bytes32_from_hex(hex_str: &str) -> anyhow::Result<FixedBytes<32>> {
 
 fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
     let quartic = build_quartic_fixture()?;
+    write_quartic_fixed_config(out_dir, &quartic)?;
 
     let abi_statement = statement_to_abi(&quartic.statement_points, &quartic.statement_evaluations);
     let abi_proof = proof_to_abi(&quartic.proof)?;
@@ -58,6 +61,32 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
     let tampered_stir_abi_proof = proof_to_abi(&tampered_stir_proof)?;
     let tampered_ood_proof = tamper_first_initial_ood_answer(&quartic.proof)?;
     let tampered_ood_abi_proof = proof_to_abi(&tampered_ood_proof)?;
+    let effective_digest_bytes =
+        effective_digest_bytes_for_security_bits(quartic.security.merkle_security_bits as usize);
+    let success_blob = encode_quartic_whir_blob_v1(
+        &quartic.statement_points,
+        &quartic.statement_evaluations,
+        &quartic.proof,
+        effective_digest_bytes,
+    )?;
+    let tampered_commitment_blob = encode_quartic_whir_blob_v1(
+        &quartic.statement_points,
+        &quartic.statement_evaluations,
+        &tampered_raw_proof,
+        effective_digest_bytes,
+    )?;
+    let tampered_stir_blob = encode_quartic_whir_blob_v1(
+        &quartic.statement_points,
+        &quartic.statement_evaluations,
+        &tampered_stir_proof,
+        effective_digest_bytes,
+    )?;
+    let tampered_ood_blob = encode_quartic_whir_blob_v1(
+        &quartic.statement_points,
+        &quartic.statement_evaluations,
+        &tampered_ood_proof,
+        effective_digest_bytes,
+    )?;
 
     write_abi_file(
         &out_dir.join("quartic_whir_success_statement.abi"),
@@ -76,12 +105,52 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
         &out_dir.join("quartic_whir_failure_bad_ood_or_transcript_mismatch_proof.abi"),
         &tampered_ood_abi_proof,
     )?;
+    fs::write(out_dir.join("quartic_whir_success.blob"), success_blob).with_context(|| {
+        format!(
+            "failed to write blob fixture {}",
+            out_dir.join("quartic_whir_success.blob").display()
+        )
+    })?;
+    fs::write(
+        out_dir.join("quartic_whir_failure_bad_commitment.blob"),
+        tampered_commitment_blob,
+    )
+    .with_context(|| {
+        format!(
+            "failed to write blob fixture {}",
+            out_dir
+                .join("quartic_whir_failure_bad_commitment.blob")
+                .display()
+        )
+    })?;
+    fs::write(
+        out_dir.join("quartic_whir_failure_bad_stir_query.blob"),
+        tampered_stir_blob,
+    )
+    .with_context(|| {
+        format!(
+            "failed to write blob fixture {}",
+            out_dir
+                .join("quartic_whir_failure_bad_stir_query.blob")
+                .display()
+        )
+    })?;
+    fs::write(
+        out_dir.join("quartic_whir_failure_bad_ood_or_transcript_mismatch.blob"),
+        tampered_ood_blob,
+    )
+    .with_context(|| {
+        format!(
+            "failed to write blob fixture {}",
+            out_dir
+                .join("quartic_whir_failure_bad_ood_or_transcript_mismatch.blob")
+                .display()
+        )
+    })?;
 
     let field_vectors = generate_field_vectors();
     write_json_file(&out_dir.join("field_vectors.json"), &field_vectors)?;
 
-    let effective_digest_bytes =
-        effective_digest_bytes_for_security_bits(quartic.security.merkle_security_bits as usize);
     let merkle_vectors = generate_merkle_vectors(effective_digest_bytes)?;
     write_json_file(&out_dir.join("merkle_vectors.json"), &merkle_vectors)?;
     let merkle_vectors_abi = MerkleVectorFixture {
@@ -215,6 +284,7 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
             "Failure fixture mutates initial commitment to force commitment mismatch.",
             "Failure fixture mutates one STIR query opening while keeping commitments and OOD answers intact.",
             "Failure fixture mutates one initial OOD answer, which also changes the downstream transcript.",
+            "Blob fixtures encode the current fixed-shape quartic standalone WHIR proof family.",
             "Transcript trace records every observe/sample call in canonical replay form.",
             "Spartan transcript fixture records domain-separator preimage, digest, public inputs, and checkpoint.",
             "Field vectors include base/quartic/octic arithmetic tuples.",
@@ -231,6 +301,28 @@ fn write_fixture_outputs(out_dir: &Path) -> anyhow::Result<()> {
         &out_dir.join("spartan_placeholder_proof.abi"),
         &placeholder_spartan_proof(abi_proof),
     )?;
+
+    Ok(())
+}
+
+fn write_quartic_fixed_config(
+    out_dir: &Path,
+    quartic: &spartan_whir_export::quartic_fixture::QuarticFixture,
+) -> anyhow::Result<()> {
+    let project_root = out_dir
+        .parent()
+        .context("fixture output directory must be nested under a project root")?;
+    let generated_dir = project_root.join("src/generated");
+    fs::create_dir_all(&generated_dir).with_context(|| {
+        format!(
+            "failed to create generated Solidity directory {}",
+            generated_dir.display()
+        )
+    })?;
+
+    let source = generate_quartic_fixed_config_source(quartic);
+    fs::write(generated_dir.join("QuarticWhirFixedConfig.sol"), source)
+        .context("failed to write QuarticWhirFixedConfig.sol")?;
 
     Ok(())
 }

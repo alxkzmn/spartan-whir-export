@@ -1,13 +1,9 @@
 use alloy_primitives::Bytes;
-use p3_challenger::{
-    CanObserve, CanSample, CanSampleBits, FieldChallenger, GrindingChallenger, HashChallenger,
-    SerializingChallenger32,
-};
+use p3_challenger::{CanObserve, CanSample, CanSampleBits, FieldChallenger, GrindingChallenger};
 use p3_field::PrimeField32;
-use p3_keccak::Keccak256Hash;
 use p3_symmetric::Hash;
 use serde::Serialize;
-use spartan_whir::{engine::F, KeccakChallenger};
+use spartan_whir::{engine::F, new_keccak_challenger, KeccakChallenger};
 
 use crate::ChallengerTranscriptEvent;
 
@@ -48,10 +44,7 @@ pub struct TranscriptTraceFile {
 
 impl TraceChallenger {
     pub fn new() -> Self {
-        let inner = SerializingChallenger32::new(HashChallenger::<u8, Keccak256Hash, 32>::new(
-            vec![],
-            Keccak256Hash {},
-        ));
+        let inner = new_keccak_challenger();
         Self {
             inner,
             events: Vec::new(),
@@ -94,7 +87,7 @@ impl Default for TraceChallenger {
 
 impl CanObserve<F> for TraceChallenger {
     fn observe(&mut self, value: F) {
-        let observed_bytes = value.to_unique_u32().to_le_bytes();
+        let observed_bytes = value.as_canonical_u32().to_le_bytes();
         self.observed_base_values.push(value);
         self.inner.observe(value);
         self.push_event(

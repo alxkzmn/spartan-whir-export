@@ -1,13 +1,22 @@
 pub mod abi_export;
+pub mod fixed_config_codegen;
 pub mod quartic_fixture;
 pub mod spartan_context_fixture;
 pub mod transcript;
 pub mod utils;
 pub mod vectors;
+pub mod whir_blob_export;
 
 use alloy_sol_types::sol;
+use spartan_whir::WhirParams;
 
 pub const DIGEST_ELEMS: usize = 4;
+pub const FIXTURE_WHIR_PARAMS: WhirParams = WhirParams {
+    pow_bits: 30,
+    folding_factor: 4,
+    starting_log_inv_rate: 6,
+    rs_domain_initial_reduction_factor: 1,
+};
 
 sol! {
     struct MerkleLeafHashFixture {
