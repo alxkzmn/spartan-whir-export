@@ -75,12 +75,17 @@ pub fn tamper_first_initial_ood_answer(proof: &RawWhirProof4) -> anyhow::Result<
 }
 
 pub fn build_quartic_fixture() -> anyhow::Result<QuarticFixture> {
+    build_quartic_fixture_with_params(FIXTURE_WHIR_PARAMS)
+}
+
+pub fn build_quartic_fixture_with_params(
+    whir_params: WhirParams,
+) -> anyhow::Result<QuarticFixture> {
     let security = SecurityConfig {
         security_level_bits: 80,
         merkle_security_bits: 80,
         soundness_assumption: SoundnessAssumption::CapacityBound,
     };
-    let whir_params = FIXTURE_WHIR_PARAMS;
     let num_variables = 16usize;
 
     let protocol_params = ProtocolParameters {
