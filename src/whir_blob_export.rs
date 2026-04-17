@@ -12,7 +12,6 @@ use crate::{
 const MAGIC: &[u8; 4] = b"WHRB";
 const VERSION_V1: u16 = 1;
 const EXTENSION_DEGREE: u8 = 4;
-const ROUND_COUNT: u8 = 2;
 const FLAGS_V1: u8 = 0x03; // final query batch + final sumcheck present
 
 const STATEMENT_POINTS: usize = 1;
@@ -20,15 +19,27 @@ const STATEMENT_POINT_ARITY: usize = 16;
 const STATEMENT_EVALUATIONS: usize = 1;
 const INITIAL_OOD_SAMPLES: usize = 2;
 const ROUND_OOD_SAMPLES: usize = 2;
-const INITIAL_SUMCHECK_EVALS: usize = 8;
-const ROUND_SUMCHECK_EVALS: usize = 8;
-const FINAL_SUMCHECK_EVALS: usize = 8;
+
+const ROUND_COUNT: u8 = 1;
+const INITIAL_SUMCHECK_EVALS: usize = 10;
+const ROUND_SUMCHECK_EVALS: usize = 10;
+const FINAL_SUMCHECK_EVALS: usize = 12;
 const ROUND0_NUM_QUERIES: usize = 9;
-const ROUND1_NUM_QUERIES: usize = 6;
-const FINAL_NUM_QUERIES: usize = 5;
-const ROW_LEN: usize = 16;
-const ROUND1_SUMCHECK_POW_WITNESSES: usize = 4;
-const FINAL_POLY_LEN: usize = 16;
+const FINAL_NUM_QUERIES: usize = 6;
+const ROW_LEN: usize = 32;
+const ROUND0_SUMCHECK_POW_WITNESSES: usize = 5;
+const FINAL_POLY_LEN: usize = 64;
+
+const ROUND_COUNT_LIR11: u8 = 1;
+const INITIAL_SUMCHECK_EVALS_LIR11: usize = 10;
+const INITIAL_SUMCHECK_POW_WITNESSES_LIR11: usize = 5;
+const ROUND_SUMCHECK_EVALS_LIR11: usize = 10;
+const ROUND0_NUM_QUERIES_LIR11: usize = 5;
+const FINAL_NUM_QUERIES_LIR11: usize = 4;
+const ROW_LEN_LIR11: usize = 32;
+const ROUND0_SUMCHECK_POW_WITNESSES_LIR11: usize = 5;
+const FINAL_SUMCHECK_EVALS_LIR11: usize = 12;
+const FINAL_POLY_LEN_LIR11: usize = 64;
 
 pub fn encode_quartic_whir_blob_v1(
     statement_points: &[Vec<EF4>],
@@ -58,7 +69,7 @@ pub fn encode_quartic_whir_blob_v1(
     );
     ensure!(
         raw_proof.initial_sumcheck.polynomial_evaluations.len() == INITIAL_SUMCHECK_EVALS / 2,
-        "expected exactly four initial sumcheck rounds"
+        "expected exactly five initial sumcheck rounds"
     );
     ensure!(
         raw_proof.initial_sumcheck.pow_witnesses.is_empty(),
@@ -66,35 +77,21 @@ pub fn encode_quartic_whir_blob_v1(
     );
     ensure!(
         raw_proof.rounds.len() == ROUND_COUNT as usize,
-        "expected exactly two non-final WHIR rounds"
+        "expected exactly one non-final WHIR round"
     );
 
     let round0 = &raw_proof.rounds[0];
-    let round1 = &raw_proof.rounds[1];
-
     ensure!(
         round0.ood_answers.len() == ROUND_OOD_SAMPLES,
         "round 0 expected exactly two OOD answers"
     );
     ensure!(
-        round1.ood_answers.len() == ROUND_OOD_SAMPLES,
-        "round 1 expected exactly two OOD answers"
-    );
-    ensure!(
         round0.sumcheck.polynomial_evaluations.len() == ROUND_SUMCHECK_EVALS / 2,
-        "round 0 expected exactly four sumcheck rounds"
+        "round 0 expected exactly five sumcheck rounds"
     );
     ensure!(
-        round0.sumcheck.pow_witnesses.is_empty(),
-        "round 0 sumcheck should not contain PoW witnesses"
-    );
-    ensure!(
-        round1.sumcheck.polynomial_evaluations.len() == ROUND_SUMCHECK_EVALS / 2,
-        "round 1 expected exactly four sumcheck rounds"
-    );
-    ensure!(
-        round1.sumcheck.pow_witnesses.len() == ROUND1_SUMCHECK_POW_WITNESSES,
-        "round 1 expected exactly four sumcheck PoW witnesses"
+        round0.sumcheck.pow_witnesses.len() == ROUND0_SUMCHECK_POW_WITNESSES,
+        "round 0 expected exactly five sumcheck PoW witnesses"
     );
 
     let final_poly = raw_proof
@@ -103,7 +100,7 @@ pub fn encode_quartic_whir_blob_v1(
         .context("missing final polynomial in fixed WHIR blob export")?;
     ensure!(
         final_poly.num_evals() == FINAL_POLY_LEN,
-        "expected final polynomial length 16"
+        "expected final polynomial length 64"
     );
 
     let final_query_batch = raw_proof
@@ -116,7 +113,7 @@ pub fn encode_quartic_whir_blob_v1(
         .context("missing final sumcheck in fixed WHIR blob export")?;
     ensure!(
         final_sumcheck.polynomial_evaluations.len() == FINAL_SUMCHECK_EVALS / 2,
-        "expected exactly four final sumcheck rounds"
+        "expected exactly six final sumcheck rounds"
     );
     ensure!(
         final_sumcheck.pow_witnesses.is_empty(),
@@ -124,7 +121,6 @@ pub fn encode_quartic_whir_blob_v1(
     );
 
     let round0_decomm_len = validate_round0_query_batch(round0)?;
-    let round1_decomm_len = validate_round1_query_batch(round1)?;
     let final_decomm_len = validate_final_query_batch(final_query_batch)?;
 
     let mut out = Vec::new();
@@ -141,10 +137,7 @@ pub fn encode_quartic_whir_blob_v1(
         &mut out,
         u16::try_from(round0_decomm_len).context("round0 decommitment count exceeds u16")?,
     );
-    put_u16(
-        &mut out,
-        u16::try_from(round1_decomm_len).context("round1 decommitment count exceeds u16")?,
-    );
+    put_u16(&mut out, 0);
     put_u16(
         &mut out,
         u16::try_from(final_decomm_len).context("final decommitment count exceeds u16")?,
@@ -165,20 +158,151 @@ pub fn encode_quartic_whir_blob_v1(
     }
     put_sumcheck_evals_le(&mut out, &raw_proof.initial_sumcheck.polynomial_evaluations);
 
-    encode_round0(&mut out, round0, effective_digest_bytes);
-    encode_round1(&mut out, round1, effective_digest_bytes);
+    encode_round0_with_sumcheck_pow(&mut out, round0, effective_digest_bytes);
 
     for value in final_poly.as_slice() {
         put_ext4(&mut out, value);
     }
     put_base_le(&mut out, raw_proof.final_pow_witness);
-    encode_final_query_batch(&mut out, final_query_batch, effective_digest_bytes);
+    encode_extension_query_batch(&mut out, final_query_batch, effective_digest_bytes);
     put_sumcheck_evals_le(&mut out, &final_sumcheck.polynomial_evaluations);
 
     Ok(out)
 }
 
-fn encode_round0(
+pub fn encode_quartic_whir_lir11_blob_v1(
+    statement_points: &[Vec<EF4>],
+    statement_evaluations: &[EF4],
+    raw_proof: &RawWhirProof4,
+    effective_digest_bytes: usize,
+) -> anyhow::Result<Vec<u8>> {
+    ensure!(
+        effective_digest_bytes == 20,
+        "fixed quartic lir=11 blob currently expects 20 effective digest bytes"
+    );
+    ensure!(
+        statement_points.len() == STATEMENT_POINTS,
+        "expected exactly one statement point"
+    );
+    ensure!(
+        statement_points[0].len() == STATEMENT_POINT_ARITY,
+        "expected statement point arity 16"
+    );
+    ensure!(
+        statement_evaluations.len() == STATEMENT_EVALUATIONS,
+        "expected exactly one statement evaluation"
+    );
+    ensure!(
+        raw_proof.initial_ood_answers.len() == INITIAL_OOD_SAMPLES,
+        "expected exactly two initial OOD answers"
+    );
+    ensure!(
+        raw_proof.initial_sumcheck.polynomial_evaluations.len() == INITIAL_SUMCHECK_EVALS_LIR11 / 2,
+        "expected exactly five initial sumcheck rounds"
+    );
+    ensure!(
+        raw_proof.initial_sumcheck.pow_witnesses.len() == INITIAL_SUMCHECK_POW_WITNESSES_LIR11,
+        "initial sumcheck expected exactly five PoW witnesses"
+    );
+    ensure!(
+        raw_proof.rounds.len() == ROUND_COUNT_LIR11 as usize,
+        "expected exactly one non-final WHIR round"
+    );
+
+    let round0 = &raw_proof.rounds[0];
+    ensure!(
+        round0.ood_answers.len() == ROUND_OOD_SAMPLES,
+        "round 0 expected exactly two OOD answers"
+    );
+    ensure!(
+        round0.sumcheck.polynomial_evaluations.len() == ROUND_SUMCHECK_EVALS_LIR11 / 2,
+        "round 0 expected exactly five sumcheck rounds"
+    );
+    ensure!(
+        round0.sumcheck.pow_witnesses.len() == ROUND0_SUMCHECK_POW_WITNESSES_LIR11,
+        "round 0 expected exactly five sumcheck PoW witnesses"
+    );
+
+    let final_poly = raw_proof
+        .final_poly
+        .as_ref()
+        .context("missing final polynomial in fixed lir=11 blob export")?;
+    ensure!(
+        final_poly.num_evals() == FINAL_POLY_LEN_LIR11,
+        "expected final polynomial length 64"
+    );
+
+    let final_query_batch = raw_proof
+        .final_query_batch
+        .as_ref()
+        .context("missing final query batch in fixed lir=11 blob export")?;
+    let final_sumcheck = raw_proof
+        .final_sumcheck
+        .as_ref()
+        .context("missing final sumcheck in fixed lir=11 blob export")?;
+    ensure!(
+        final_sumcheck.polynomial_evaluations.len() == FINAL_SUMCHECK_EVALS_LIR11 / 2,
+        "expected exactly six final sumcheck rounds"
+    );
+    ensure!(
+        final_sumcheck.pow_witnesses.is_empty(),
+        "final sumcheck should not contain PoW witnesses"
+    );
+
+    let round0_decomm_len = validate_round0_query_batch_lir11(round0)?;
+    let final_decomm_len = validate_final_query_batch_lir11(final_query_batch)?;
+
+    let mut out = Vec::new();
+    out.extend_from_slice(MAGIC);
+    put_u16(&mut out, VERSION_V1);
+    put_u8(
+        &mut out,
+        u8::try_from(effective_digest_bytes).expect("20 fits in u8"),
+    );
+    put_u8(&mut out, EXTENSION_DEGREE);
+    put_u8(&mut out, ROUND_COUNT_LIR11);
+    put_u8(&mut out, FLAGS_V1);
+    put_u16(
+        &mut out,
+        u16::try_from(round0_decomm_len).context("round0 decommitment count exceeds u16")?,
+    );
+    put_u16(&mut out, 0);
+    put_u16(
+        &mut out,
+        u16::try_from(final_decomm_len).context("final decommitment count exceeds u16")?,
+    );
+
+    for point_value in &statement_points[0] {
+        put_ext4(&mut out, point_value);
+    }
+    put_ext4(&mut out, &statement_evaluations[0]);
+
+    put_digest(
+        &mut out,
+        &raw_proof.initial_commitment,
+        effective_digest_bytes,
+    );
+    for answer in &raw_proof.initial_ood_answers {
+        put_ext4_le(&mut out, answer);
+    }
+    put_sumcheck_evals_le(&mut out, &raw_proof.initial_sumcheck.polynomial_evaluations);
+    for witness in &raw_proof.initial_sumcheck.pow_witnesses {
+        put_base_le(&mut out, *witness);
+    }
+
+    encode_round0_with_sumcheck_pow(&mut out, round0, effective_digest_bytes);
+
+    for value in final_poly.as_slice() {
+        put_ext4(&mut out, value);
+    }
+    put_base_le(&mut out, raw_proof.final_pow_witness);
+    encode_extension_query_batch(&mut out, final_query_batch, effective_digest_bytes);
+    put_sumcheck_evals_le(&mut out, &final_sumcheck.polynomial_evaluations);
+
+    Ok(out)
+}
+
+fn encode_round0_with_sumcheck_pow(
     out: &mut Vec<u8>,
     round: &whir_p3::whir::proof::WhirRoundProof<F, EF4, u64, DIGEST_ELEMS>,
     effective_digest_bytes: usize,
@@ -208,44 +332,12 @@ fn encode_round0(
     }
 
     put_sumcheck_evals_le(out, &round.sumcheck.polynomial_evaluations);
-}
-
-fn encode_round1(
-    out: &mut Vec<u8>,
-    round: &whir_p3::whir::proof::WhirRoundProof<F, EF4, u64, DIGEST_ELEMS>,
-    effective_digest_bytes: usize,
-) {
-    put_digest(out, &round.commitment, effective_digest_bytes);
-    for answer in &round.ood_answers {
-        put_ext4_le(out, answer);
-    }
-    put_base_le(out, round.pow_witness);
-
-    match round
-        .query_batch
-        .as_ref()
-        .expect("validated round1 query batch presence")
-    {
-        RawQueryBatchOpening::Extension { values, proof } => {
-            for row in values {
-                for value in row {
-                    put_ext4(out, value);
-                }
-            }
-            for digest in &proof.decommitments {
-                put_digest(out, digest, effective_digest_bytes);
-            }
-        }
-        RawQueryBatchOpening::Base { .. } => unreachable!(),
-    }
-
-    put_sumcheck_evals_le(out, &round.sumcheck.polynomial_evaluations);
     for witness in &round.sumcheck.pow_witnesses {
         put_base_le(out, *witness);
     }
 }
 
-fn encode_final_query_batch(
+fn encode_extension_query_batch(
     out: &mut Vec<u8>,
     query_batch: &RawQueryBatchOpening<F, EF4, u64, DIGEST_ELEMS>,
     effective_digest_bytes: usize,
@@ -280,37 +372,12 @@ fn validate_round0_query_batch(
             );
             ensure!(
                 values.iter().all(|row| row.len() == ROW_LEN),
-                "round 0 expected base row length 16"
+                "round 0 expected base row length 32"
             );
             Ok(proof.decommitments.len())
         }
         RawQueryBatchOpening::Extension { .. } => {
             anyhow::bail!("round 0 expected base query batch")
-        }
-    }
-}
-
-fn validate_round1_query_batch(
-    round: &whir_p3::whir::proof::WhirRoundProof<F, EF4, u64, DIGEST_ELEMS>,
-) -> anyhow::Result<usize> {
-    let query_batch = round
-        .query_batch
-        .as_ref()
-        .context("round 1 missing query batch")?;
-    match query_batch {
-        RawQueryBatchOpening::Extension { values, proof } => {
-            ensure!(
-                values.len() == ROUND1_NUM_QUERIES,
-                "round 1 expected 6 extension query rows"
-            );
-            ensure!(
-                values.iter().all(|row| row.len() == ROW_LEN),
-                "round 1 expected extension row length 16"
-            );
-            Ok(proof.decommitments.len())
-        }
-        RawQueryBatchOpening::Base { .. } => {
-            anyhow::bail!("round 1 expected extension query batch")
         }
     }
 }
@@ -322,11 +389,57 @@ fn validate_final_query_batch(
         RawQueryBatchOpening::Extension { values, proof } => {
             ensure!(
                 values.len() == FINAL_NUM_QUERIES,
-                "final expected 5 extension query rows"
+                "final expected 6 extension query rows"
             );
             ensure!(
                 values.iter().all(|row| row.len() == ROW_LEN),
-                "final expected extension row length 16"
+                "final expected extension row length 32"
+            );
+            Ok(proof.decommitments.len())
+        }
+        RawQueryBatchOpening::Base { .. } => {
+            anyhow::bail!("final expected extension query batch")
+        }
+    }
+}
+
+fn validate_round0_query_batch_lir11(
+    round: &whir_p3::whir::proof::WhirRoundProof<F, EF4, u64, DIGEST_ELEMS>,
+) -> anyhow::Result<usize> {
+    let query_batch = round
+        .query_batch
+        .as_ref()
+        .context("round 0 missing query batch")?;
+    match query_batch {
+        RawQueryBatchOpening::Base { values, proof } => {
+            ensure!(
+                values.len() == ROUND0_NUM_QUERIES_LIR11,
+                "round 0 expected 5 base query rows"
+            );
+            ensure!(
+                values.iter().all(|row| row.len() == ROW_LEN_LIR11),
+                "round 0 expected base row length 32"
+            );
+            Ok(proof.decommitments.len())
+        }
+        RawQueryBatchOpening::Extension { .. } => {
+            anyhow::bail!("round 0 expected base query batch")
+        }
+    }
+}
+
+fn validate_final_query_batch_lir11(
+    query_batch: &RawQueryBatchOpening<F, EF4, u64, DIGEST_ELEMS>,
+) -> anyhow::Result<usize> {
+    match query_batch {
+        RawQueryBatchOpening::Extension { values, proof } => {
+            ensure!(
+                values.len() == FINAL_NUM_QUERIES_LIR11,
+                "final expected 4 extension query rows"
+            );
+            ensure!(
+                values.iter().all(|row| row.len() == ROW_LEN_LIR11),
+                "final expected extension row length 32"
             );
             Ok(proof.decommitments.len())
         }

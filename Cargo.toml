@@ -9,6 +9,10 @@ publish = false
 name = "export-fixtures"
 path = "src/bin/export_fixtures.rs"
 
+[[bin]]
+name = "export-fixtures-lir11-ff5-rsv3"
+path = "src/bin/export_fixtures_lir11_ff5_rsv3.rs"
+
 [dependencies]
 alloy-primitives = "0.8"
 alloy-sol-types = "0.8"

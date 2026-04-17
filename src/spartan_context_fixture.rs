@@ -26,12 +26,17 @@ pub struct SpartanContextFixture {
 }
 
 pub fn build_spartan_context_fixture() -> anyhow::Result<SpartanContextFixture> {
+    build_spartan_context_fixture_with_params(FIXTURE_WHIR_PARAMS)
+}
+
+pub fn build_spartan_context_fixture_with_params(
+    whir_params: WhirParams,
+) -> anyhow::Result<SpartanContextFixture> {
     let security = SecurityConfig {
         security_level_bits: 80,
         merkle_security_bits: 80,
         soundness_assumption: SoundnessAssumption::CapacityBound,
     };
-    let whir_params = FIXTURE_WHIR_PARAMS;
     let fixture = generate_satisfiable_fixture(&SyntheticR1csConfig {
         target_log2_witness_poly: 4,
         num_constraints: 4,
