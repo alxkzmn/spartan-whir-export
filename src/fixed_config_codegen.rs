@@ -1,18 +1,37 @@
 use std::fmt::Write;
 
-use p3_field::PrimeField32;
+use p3_field::{BasedVectorSpace, PrimeField32};
 use spartan_whir::effective_digest_bytes_for_security_bits;
 
-use crate::quartic_fixture::QuarticFixture;
+use crate::quartic_fixture::StandaloneWhirFixture;
 
-pub fn generate_quartic_fixed_config_source(fixture: &QuarticFixture) -> String {
-    generate_quartic_fixed_config_source_named(fixture, "QuarticWhirFixedConfig")
+pub fn generate_quartic_fixed_config_source(
+    fixture: &StandaloneWhirFixture<spartan_whir::QuarticBinExtension>,
+) -> String {
+    generate_fixed_config_source_named(fixture, "QuarticWhirFixedConfig")
 }
 
 pub fn generate_quartic_fixed_config_source_named(
-    fixture: &QuarticFixture,
+    fixture: &StandaloneWhirFixture<spartan_whir::QuarticBinExtension>,
     library_name: &str,
 ) -> String {
+    generate_fixed_config_source_named(fixture, library_name)
+}
+
+pub fn generate_octic_fixed_config_source_named(
+    fixture: &StandaloneWhirFixture<spartan_whir::OcticBinExtension>,
+    library_name: &str,
+) -> String {
+    generate_fixed_config_source_named(fixture, library_name)
+}
+
+pub fn generate_fixed_config_source_named<EF>(
+    fixture: &StandaloneWhirFixture<EF>,
+    library_name: &str,
+) -> String
+where
+    EF: spartan_whir::engine::ExtField + BasedVectorSpace<spartan_whir::engine::F> + Copy,
+{
     let final_round = fixture.config.final_round_config();
     let effective_digest_bytes =
         effective_digest_bytes_for_security_bits(fixture.security.merkle_security_bits as usize);
@@ -48,6 +67,7 @@ pub fn generate_quartic_fixed_config_source_named(
     .unwrap();
 
     emit_const(&mut out, "NUM_VARIABLES", fixture.config.num_variables);
+    emit_const(&mut out, "EXTENSION_DEGREE", EF::DIMENSION);
     emit_const(
         &mut out,
         "COMMITMENT_OOD_SAMPLES",

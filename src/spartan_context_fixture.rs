@@ -1,19 +1,26 @@
 use p3_challenger::{CanObserve, FieldChallenger};
+use p3_field::BasedVectorSpace;
 use p3_keccak::Keccak256Hash;
 use p3_symmetric::{CryptographicHasher, Hash};
 use spartan_whir::{
     domain_separator::DomainSeparator,
-    engine::{QuarticBinExtension, F},
+    engine::{OcticBinExtension, QuarticBinExtension, F},
     generate_satisfiable_fixture, SecurityConfig, SoundnessAssumption, SyntheticR1csConfig,
     WhirParams,
 };
 
-use crate::{transcript::TraceChallenger, FIXTURE_WHIR_PARAMS};
+use crate::{
+    octic_fixture::OCTIC_K22_JB100_SECURITY, transcript::TraceChallenger, FIXTURE_WHIR_PARAMS,
+};
 
 pub type EF4 = QuarticBinExtension;
+pub type EF8 = OcticBinExtension;
 
 #[derive(Debug)]
-pub struct SpartanContextFixture {
+pub struct SpartanContextFixture<EF>
+where
+    EF: BasedVectorSpace<F> + Copy,
+{
     pub num_cons: usize,
     pub num_vars: usize,
     pub num_io: usize,
@@ -22,21 +29,48 @@ pub struct SpartanContextFixture {
     pub public_inputs: Vec<F>,
     pub preimage: Vec<u8>,
     pub digest: [u8; 32],
-    pub checkpoint: EF4,
+    pub checkpoint: EF,
 }
 
-pub fn build_spartan_context_fixture() -> anyhow::Result<SpartanContextFixture> {
-    build_spartan_context_fixture_with_params(FIXTURE_WHIR_PARAMS)
+pub fn build_spartan_context_fixture() -> anyhow::Result<SpartanContextFixture<EF4>> {
+    build_spartan_context_fixture_with_security::<EF4>(
+        SecurityConfig {
+            security_level_bits: 80,
+            merkle_security_bits: 80,
+            soundness_assumption: SoundnessAssumption::CapacityBound,
+        },
+        FIXTURE_WHIR_PARAMS,
+    )
 }
 
 pub fn build_spartan_context_fixture_with_params(
     whir_params: WhirParams,
-) -> anyhow::Result<SpartanContextFixture> {
-    let security = SecurityConfig {
-        security_level_bits: 80,
-        merkle_security_bits: 80,
-        soundness_assumption: SoundnessAssumption::CapacityBound,
-    };
+) -> anyhow::Result<SpartanContextFixture<EF4>> {
+    build_spartan_context_fixture_with_security::<EF4>(
+        SecurityConfig {
+            security_level_bits: 80,
+            merkle_security_bits: 80,
+            soundness_assumption: SoundnessAssumption::CapacityBound,
+        },
+        whir_params,
+    )
+}
+
+pub fn build_spartan_context_fixture_octic_k22_jb100() -> anyhow::Result<SpartanContextFixture<EF8>>
+{
+    build_spartan_context_fixture_with_security::<EF8>(
+        OCTIC_K22_JB100_SECURITY,
+        crate::octic_fixture::OCTIC_K22_JB100_WHIR_PARAMS,
+    )
+}
+
+pub fn build_spartan_context_fixture_with_security<EF>(
+    security: SecurityConfig,
+    whir_params: WhirParams,
+) -> anyhow::Result<SpartanContextFixture<EF>>
+where
+    EF: BasedVectorSpace<F> + Copy,
+{
     let fixture = generate_satisfiable_fixture(&SyntheticR1csConfig {
         target_log2_witness_poly: 4,
         num_constraints: 4,
@@ -55,7 +89,7 @@ pub fn build_spartan_context_fixture_with_params(
     let mut challenger = TraceChallenger::new();
     challenger.observe(digest_hash);
     challenger.observe_slice(&fixture.public_inputs);
-    let checkpoint = challenger.sample_algebra_element::<EF4>();
+    let checkpoint = challenger.sample_algebra_element::<EF>();
 
     let expected_preimage_len = 76;
     anyhow::ensure!(

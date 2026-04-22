@@ -1,6 +1,7 @@
 pub mod abi_export;
 pub mod fixed_config_codegen;
 pub mod fixture_export;
+pub mod octic_fixture;
 pub mod quartic_fixture;
 pub mod spartan_context_fixture;
 pub mod transcript;
