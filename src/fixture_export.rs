@@ -13,25 +13,35 @@ use crate::{
         placeholder_spartan_instance, placeholder_spartan_proof, proof_to_abi, statement_to_abi,
     },
     fixed_config_codegen::{
-        generate_quartic_fixed_config_source, generate_quartic_fixed_config_source_named,
+        generate_octic_fixed_config_source_named, generate_quartic_fixed_config_source,
+        generate_quartic_fixed_config_source_named,
+    },
+    octic_fixture::{
+        build_octic_k22_jb100_fixture, tamper_first_initial_ood_answer_octic,
+        tamper_first_stir_query_octic, OcticFixture, RawWhirProof8, EF8,
     },
     quartic_fixture::{
         build_quartic_fixture_with_params, tamper_first_initial_ood_answer,
         tamper_first_stir_query, QuarticFixture, RawWhirProof4, EF4,
     },
     spartan_context_fixture::{
-        build_spartan_context_fixture_with_params, soundness_assumption_byte,
+        build_spartan_context_fixture_octic_k22_jb100, build_spartan_context_fixture_with_params,
+        soundness_assumption_byte,
     },
     transcript::{events_to_abi, TranscriptTraceFile},
     utils::{extension_coeffs_u32, to_u256_base, to_u256_usize, write_abi_file, write_json_file},
     vectors::{generate_field_vectors, generate_merkle_vectors},
-    whir_blob_export::{encode_quartic_whir_blob_v1, encode_quartic_whir_lir11_blob_v1},
+    whir_blob_export::{
+        encode_octic_whir_k22_jb100_blob_v1, encode_quartic_whir_blob_v1,
+        encode_quartic_whir_lir11_blob_v1,
+    },
     ChallengerTranscriptTrace, MerkleLeafHashFixture, MerkleMultiproofFixture,
     MerkleNodeCompressionFixture, MerkleVectorFixture, SpartanTranscriptContextFixture,
     FIXTURE_WHIR_PARAMS, FIXTURE_WHIR_PARAMS_LIR11, KOALABEAR_MODULUS,
 };
 
-type BlobEncoder = fn(&[Vec<EF4>], &[EF4], &RawWhirProof4, usize) -> anyhow::Result<Vec<u8>>;
+type QuarticBlobEncoder = fn(&[Vec<EF4>], &[EF4], &RawWhirProof4, usize) -> anyhow::Result<Vec<u8>>;
+type OcticBlobEncoder = fn(&[Vec<EF8>], &[EF8], &RawWhirProof8, usize) -> anyhow::Result<Vec<u8>>;
 
 /// Summary metadata written alongside the fixtures for human inspection.
 #[derive(Debug, Serialize)]
@@ -106,6 +116,26 @@ pub fn export_lir11_fixtures(out_dir: &Path) -> anyhow::Result<()> {
         "spartan_transcript_context_quartic_lir11_ff5_rsv3.abi",
         "spartan_placeholder_proof_quartic_lir11_ff5_rsv3.abi",
         encode_quartic_whir_lir11_blob_v1,
+    )
+}
+
+pub fn export_octic_k22_jb100_fixtures(out_dir: &Path) -> anyhow::Result<()> {
+    let octic = build_octic_k22_jb100_fixture()?;
+    write_octic_fixed_config_named(
+        out_dir,
+        &octic,
+        "OcticWhirFixedConfig_k22_jb100_lir6_ff4_rsv1.sol",
+        "OcticWhirFixedConfig_k22_jb100_lir6_ff4_rsv1",
+    )?;
+    write_octic_schedule_outputs(
+        out_dir,
+        &octic,
+        "octic_whir_k22_jb100_lir6_ff4_rsv1",
+        "transcript_trace_octic_k22_jb100_lir6_ff4_rsv1.json",
+        "transcript_trace_octic_k22_jb100_lir6_ff4_rsv1.abi",
+        "spartan_transcript_context_octic_k22_jb100_lir6_ff4_rsv1.abi",
+        "spartan_placeholder_proof_octic_k22_jb100_lir6_ff4_rsv1.abi",
+        encode_octic_whir_k22_jb100_blob_v1,
     )
 }
 
@@ -223,7 +253,7 @@ fn write_schedule_outputs(
     transcript_trace_abi_name: &str,
     spartan_context_abi_name: &str,
     spartan_placeholder_proof_abi_name: &str,
-    encode_blob: BlobEncoder,
+    encode_blob: QuarticBlobEncoder,
 ) -> anyhow::Result<()> {
     write_quartic_whir_family_outputs(out_dir, prefix, quartic, encode_blob)?;
 
@@ -297,6 +327,89 @@ fn write_schedule_outputs(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
+fn write_octic_schedule_outputs(
+    out_dir: &Path,
+    octic: &OcticFixture,
+    prefix: &str,
+    transcript_trace_json_name: &str,
+    transcript_trace_abi_name: &str,
+    spartan_context_abi_name: &str,
+    spartan_placeholder_proof_abi_name: &str,
+    encode_blob: OcticBlobEncoder,
+) -> anyhow::Result<()> {
+    write_octic_whir_family_outputs(out_dir, prefix, octic, encode_blob)?;
+
+    let transcript_trace = TranscriptTraceFile {
+        prover_events: octic.prover_trace.clone(),
+        verifier_events: octic.verifier_trace.clone(),
+        checkpoint_prover: extension_coeffs_u32(&octic.checkpoint_prover),
+        checkpoint_verifier: extension_coeffs_u32(&octic.checkpoint_verifier),
+        checkpoint_match: octic.checkpoint_prover == octic.checkpoint_verifier,
+    };
+    write_json_file(&out_dir.join(transcript_trace_json_name), &transcript_trace)?;
+    let transcript_trace_abi = ChallengerTranscriptTrace {
+        proverEvents: events_to_abi(octic.prover_trace.clone()),
+        verifierEvents: events_to_abi(octic.verifier_trace.clone()),
+        checkpointProver: extension_coeffs_u32(&octic.checkpoint_prover)
+            .into_iter()
+            .map(|value| alloy_primitives::U256::from(value as usize))
+            .collect(),
+        checkpointVerifier: extension_coeffs_u32(&octic.checkpoint_verifier)
+            .into_iter()
+            .map(|value| alloy_primitives::U256::from(value as usize))
+            .collect(),
+        checkpointMatch: octic.checkpoint_prover == octic.checkpoint_verifier,
+    };
+    write_abi_file(
+        &out_dir.join(transcript_trace_abi_name),
+        &transcript_trace_abi,
+    )?;
+
+    let spartan_context = build_spartan_context_fixture_octic_k22_jb100()?;
+    let spartan_context_abi = SpartanTranscriptContextFixture {
+        numCons: to_u256_usize(spartan_context.num_cons),
+        numVars: to_u256_usize(spartan_context.num_vars),
+        numIo: to_u256_usize(spartan_context.num_io),
+        securityLevelBits: spartan_context.security.security_level_bits,
+        merkleSecurityBits: spartan_context.security.merkle_security_bits,
+        soundnessAssumption: soundness_assumption_byte(
+            spartan_context.security.soundness_assumption,
+        ),
+        powBits: spartan_context.whir_params.pow_bits,
+        foldingFactor: to_u256_usize(spartan_context.whir_params.folding_factor),
+        startingLogInvRate: to_u256_usize(spartan_context.whir_params.starting_log_inv_rate),
+        rsDomainInitialReductionFactor: to_u256_usize(
+            spartan_context
+                .whir_params
+                .rs_domain_initial_reduction_factor,
+        ),
+        publicInputs: spartan_context
+            .public_inputs
+            .iter()
+            .copied()
+            .map(to_u256_base)
+            .collect(),
+        preimage: alloy_primitives::Bytes::from(spartan_context.preimage),
+        digest: spartan_context.digest.into(),
+        checkpoint: extension_coeffs_u32(&spartan_context.checkpoint)
+            .into_iter()
+            .map(|value| alloy_primitives::U256::from(value as usize))
+            .collect(),
+    };
+    write_abi_file(
+        &out_dir.join(spartan_context_abi_name),
+        &spartan_context_abi,
+    )?;
+
+    write_abi_file(
+        &out_dir.join(spartan_placeholder_proof_abi_name),
+        &placeholder_spartan_proof(proof_to_abi(&octic.proof)?),
+    )?;
+
+    Ok(())
+}
+
 fn write_quartic_fixed_config_named(
     out_dir: &Path,
     quartic: &QuarticFixture,
@@ -325,11 +438,35 @@ fn write_quartic_fixed_config_named(
     Ok(())
 }
 
+fn write_octic_fixed_config_named(
+    out_dir: &Path,
+    octic: &OcticFixture,
+    file_name: &str,
+    library_name: &str,
+) -> anyhow::Result<()> {
+    let project_root = out_dir
+        .parent()
+        .context("fixture output directory must be nested under a project root")?;
+    let generated_dir = project_root.join("src/generated");
+    fs::create_dir_all(&generated_dir).with_context(|| {
+        format!(
+            "failed to create generated Solidity directory {}",
+            generated_dir.display()
+        )
+    })?;
+
+    let source = generate_octic_fixed_config_source_named(octic, library_name);
+    fs::write(generated_dir.join(file_name), source)
+        .with_context(|| format!("failed to write {file_name}"))?;
+
+    Ok(())
+}
+
 fn write_quartic_whir_family_outputs(
     out_dir: &Path,
     prefix: &str,
     quartic: &QuarticFixture,
-    encode_blob: BlobEncoder,
+    encode_blob: QuarticBlobEncoder,
 ) -> anyhow::Result<()> {
     let abi_statement = statement_to_abi(&quartic.statement_points, &quartic.statement_evaluations);
     let abi_proof = proof_to_abi(&quartic.proof)?;
@@ -388,6 +525,102 @@ fn write_quartic_whir_family_outputs(
     let tampered_ood_blob = encode_blob(
         &quartic.statement_points,
         &quartic.statement_evaluations,
+        &tampered_ood_proof,
+        effective_digest_bytes,
+    )?;
+
+    fs::write(out_dir.join(format!("{prefix}_success.blob")), success_blob)
+        .with_context(|| format!("failed to write blob fixture {prefix}_success.blob"))?;
+    fs::write(
+        out_dir.join(format!("{prefix}_failure_bad_commitment.blob")),
+        tampered_commitment_blob,
+    )
+    .with_context(|| {
+        format!("failed to write blob fixture {prefix}_failure_bad_commitment.blob")
+    })?;
+    fs::write(
+        out_dir.join(format!("{prefix}_failure_bad_stir_query.blob")),
+        tampered_stir_blob,
+    )
+    .with_context(|| {
+        format!("failed to write blob fixture {prefix}_failure_bad_stir_query.blob")
+    })?;
+    fs::write(
+        out_dir.join(format!(
+            "{prefix}_failure_bad_ood_or_transcript_mismatch.blob"
+        )),
+        tampered_ood_blob,
+    )
+    .with_context(|| {
+        format!("failed to write blob fixture {prefix}_failure_bad_ood_or_transcript_mismatch.blob")
+    })?;
+
+    Ok(())
+}
+
+fn write_octic_whir_family_outputs(
+    out_dir: &Path,
+    prefix: &str,
+    octic: &OcticFixture,
+    encode_blob: OcticBlobEncoder,
+) -> anyhow::Result<()> {
+    let abi_statement = statement_to_abi(&octic.statement_points, &octic.statement_evaluations);
+    let abi_proof = proof_to_abi(&octic.proof)?;
+
+    let mut tampered_raw_proof = octic.proof.clone();
+    tampered_raw_proof.initial_commitment[0] ^= 1;
+    let tampered_abi_proof = proof_to_abi(&tampered_raw_proof)?;
+    let tampered_stir_proof = tamper_first_stir_query_octic(&octic.proof)?;
+    let tampered_stir_abi_proof = proof_to_abi(&tampered_stir_proof)?;
+    let tampered_ood_proof = tamper_first_initial_ood_answer_octic(&octic.proof)?;
+    let tampered_ood_abi_proof = proof_to_abi(&tampered_ood_proof)?;
+
+    write_abi_file(
+        &out_dir.join(format!("{prefix}_success_statement.abi")),
+        &abi_statement,
+    )?;
+    write_abi_file(
+        &out_dir.join(format!("{prefix}_success_proof.abi")),
+        &abi_proof,
+    )?;
+    write_abi_file(
+        &out_dir.join(format!("{prefix}_failure_bad_commitment_proof.abi")),
+        &tampered_abi_proof,
+    )?;
+    write_abi_file(
+        &out_dir.join(format!("{prefix}_failure_bad_stir_query_proof.abi")),
+        &tampered_stir_abi_proof,
+    )?;
+    write_abi_file(
+        &out_dir.join(format!(
+            "{prefix}_failure_bad_ood_or_transcript_mismatch_proof.abi"
+        )),
+        &tampered_ood_abi_proof,
+    )?;
+
+    let effective_digest_bytes =
+        effective_digest_bytes_for_security_bits(octic.security.merkle_security_bits as usize);
+    let success_blob = encode_blob(
+        &octic.statement_points,
+        &octic.statement_evaluations,
+        &octic.proof,
+        effective_digest_bytes,
+    )?;
+    let tampered_commitment_blob = encode_blob(
+        &octic.statement_points,
+        &octic.statement_evaluations,
+        &tampered_raw_proof,
+        effective_digest_bytes,
+    )?;
+    let tampered_stir_blob = encode_blob(
+        &octic.statement_points,
+        &octic.statement_evaluations,
+        &tampered_stir_proof,
+        effective_digest_bytes,
+    )?;
+    let tampered_ood_blob = encode_blob(
+        &octic.statement_points,
+        &octic.statement_evaluations,
         &tampered_ood_proof,
         effective_digest_bytes,
     )?;

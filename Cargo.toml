@@ -13,6 +13,11 @@ path = "src/bin/export_fixtures.rs"
 name = "export-fixtures-lir11-ff5-rsv3"
 path = "src/bin/export_fixtures_lir11_ff5_rsv3.rs"
 
+[[bin]]
+name = "export-fixtures-octic-k22-jb100-lir6-ff4-rsv1"
+path = "src/bin/export_fixtures_octic_k22_jb100_lir6_ff4_rsv1.rs"
+
+
 [dependencies]
 alloy-primitives = "0.8"
 alloy-sol-types = "0.8"
