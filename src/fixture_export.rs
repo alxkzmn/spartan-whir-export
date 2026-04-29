@@ -13,8 +13,8 @@ use crate::{
         placeholder_spartan_instance, placeholder_spartan_proof, proof_to_abi, statement_to_abi,
     },
     fixed_config_codegen::{
-        generate_octic_fixed_config_source_named, generate_quartic_fixed_config_source,
-        generate_quartic_fixed_config_source_named,
+        generate_fixed_config_source_named, generate_octic_fixed_config_source_named,
+        generate_quartic_fixed_config_source, generate_quartic_fixed_config_source_named,
     },
     octic_fixture::{
         build_octic_k22_jb100_fixture, tamper_first_initial_ood_answer_octic,
@@ -23,6 +23,11 @@ use crate::{
     quartic_fixture::{
         build_quartic_fixture_with_params, tamper_first_initial_ood_answer,
         tamper_first_stir_query, QuarticFixture, RawWhirProof4, EF4,
+    },
+    quintic_fixture::{
+        build_quintic_k22_jb100_ext5_lir4_ff4_rsv4_fixture,
+        tamper_first_initial_ood_answer_quintic, tamper_first_stir_query_quintic, QuinticFixture,
+        RawWhirProof5, EF5,
     },
     spartan_context_fixture::{
         build_spartan_context_fixture_octic_k22_jb100, build_spartan_context_fixture_with_params,
@@ -34,6 +39,7 @@ use crate::{
     whir_blob_export::{
         encode_octic_whir_k22_jb100_blob_v1, encode_quartic_whir_blob_v1,
         encode_quartic_whir_lir11_blob_v1,
+        encode_quintic_whir_k22_jb100_ext5_lir4_ff4_rsv4_blob_v1,
     },
     ChallengerTranscriptTrace, MerkleLeafHashFixture, MerkleMultiproofFixture,
     MerkleNodeCompressionFixture, MerkleVectorFixture, SpartanTranscriptContextFixture,
@@ -42,6 +48,7 @@ use crate::{
 
 type QuarticBlobEncoder = fn(&[Vec<EF4>], &[EF4], &RawWhirProof4, usize) -> anyhow::Result<Vec<u8>>;
 type OcticBlobEncoder = fn(&[Vec<EF8>], &[EF8], &RawWhirProof8, usize) -> anyhow::Result<Vec<u8>>;
+type QuinticBlobEncoder = fn(&[Vec<EF5>], &[EF5], &RawWhirProof5, usize) -> anyhow::Result<Vec<u8>>;
 
 /// Summary metadata written alongside the fixtures for human inspection.
 #[derive(Debug, Serialize)]
@@ -136,6 +143,24 @@ pub fn export_octic_k22_jb100_fixtures(out_dir: &Path) -> anyhow::Result<()> {
         "spartan_transcript_context_octic_k22_jb100_lir6_ff4_rsv1.abi",
         "spartan_placeholder_proof_octic_k22_jb100_lir6_ff4_rsv1.abi",
         encode_octic_whir_k22_jb100_blob_v1,
+    )
+}
+
+pub fn export_quintic_k22_jb100_ext5_lir4_ff4_rsv4_fixtures(out_dir: &Path) -> anyhow::Result<()> {
+    let quintic = build_quintic_k22_jb100_ext5_lir4_ff4_rsv4_fixture()?;
+    write_quintic_fixed_config_named(
+        out_dir,
+        &quintic,
+        "QuinticWhirFixedConfig_k22_jb100_ext5_lir4_ff4_rsv4.sol",
+        "QuinticWhirFixedConfig_k22_jb100_ext5_lir4_ff4_rsv4",
+    )?;
+    write_quintic_schedule_outputs(
+        out_dir,
+        &quintic,
+        "quintic_whir_k22_jb100_ext5_lir4_ff4_rsv4",
+        "transcript_trace_quintic_k22_jb100_ext5_lir4_ff4_rsv4.json",
+        "transcript_trace_quintic_k22_jb100_ext5_lir4_ff4_rsv4.abi",
+        encode_quintic_whir_k22_jb100_ext5_lir4_ff4_rsv4_blob_v1,
     )
 }
 
@@ -410,6 +435,45 @@ fn write_octic_schedule_outputs(
     Ok(())
 }
 
+fn write_quintic_schedule_outputs(
+    out_dir: &Path,
+    quintic: &QuinticFixture,
+    prefix: &str,
+    transcript_trace_json_name: &str,
+    transcript_trace_abi_name: &str,
+    encode_blob: QuinticBlobEncoder,
+) -> anyhow::Result<()> {
+    write_quintic_whir_family_outputs(out_dir, prefix, quintic, encode_blob)?;
+
+    let transcript_trace = TranscriptTraceFile {
+        prover_events: quintic.prover_trace.clone(),
+        verifier_events: quintic.verifier_trace.clone(),
+        checkpoint_prover: extension_coeffs_u32(&quintic.checkpoint_prover),
+        checkpoint_verifier: extension_coeffs_u32(&quintic.checkpoint_verifier),
+        checkpoint_match: quintic.checkpoint_prover == quintic.checkpoint_verifier,
+    };
+    write_json_file(&out_dir.join(transcript_trace_json_name), &transcript_trace)?;
+    let transcript_trace_abi = ChallengerTranscriptTrace {
+        proverEvents: events_to_abi(quintic.prover_trace.clone()),
+        verifierEvents: events_to_abi(quintic.verifier_trace.clone()),
+        checkpointProver: extension_coeffs_u32(&quintic.checkpoint_prover)
+            .into_iter()
+            .map(|value| alloy_primitives::U256::from(value as usize))
+            .collect(),
+        checkpointVerifier: extension_coeffs_u32(&quintic.checkpoint_verifier)
+            .into_iter()
+            .map(|value| alloy_primitives::U256::from(value as usize))
+            .collect(),
+        checkpointMatch: quintic.checkpoint_prover == quintic.checkpoint_verifier,
+    };
+    write_abi_file(
+        &out_dir.join(transcript_trace_abi_name),
+        &transcript_trace_abi,
+    )?;
+
+    Ok(())
+}
+
 fn write_quartic_fixed_config_named(
     out_dir: &Path,
     quartic: &QuarticFixture,
@@ -456,6 +520,30 @@ fn write_octic_fixed_config_named(
     })?;
 
     let source = generate_octic_fixed_config_source_named(octic, library_name);
+    fs::write(generated_dir.join(file_name), source)
+        .with_context(|| format!("failed to write {file_name}"))?;
+
+    Ok(())
+}
+
+fn write_quintic_fixed_config_named(
+    out_dir: &Path,
+    quintic: &QuinticFixture,
+    file_name: &str,
+    library_name: &str,
+) -> anyhow::Result<()> {
+    let project_root = out_dir
+        .parent()
+        .context("fixture output directory must be nested under a project root")?;
+    let generated_dir = project_root.join("src/generated");
+    fs::create_dir_all(&generated_dir).with_context(|| {
+        format!(
+            "failed to create generated Solidity directory {}",
+            generated_dir.display()
+        )
+    })?;
+
+    let source = generate_fixed_config_source_named(quintic, library_name);
     fs::write(generated_dir.join(file_name), source)
         .with_context(|| format!("failed to write {file_name}"))?;
 
@@ -621,6 +709,102 @@ fn write_octic_whir_family_outputs(
     let tampered_ood_blob = encode_blob(
         &octic.statement_points,
         &octic.statement_evaluations,
+        &tampered_ood_proof,
+        effective_digest_bytes,
+    )?;
+
+    fs::write(out_dir.join(format!("{prefix}_success.blob")), success_blob)
+        .with_context(|| format!("failed to write blob fixture {prefix}_success.blob"))?;
+    fs::write(
+        out_dir.join(format!("{prefix}_failure_bad_commitment.blob")),
+        tampered_commitment_blob,
+    )
+    .with_context(|| {
+        format!("failed to write blob fixture {prefix}_failure_bad_commitment.blob")
+    })?;
+    fs::write(
+        out_dir.join(format!("{prefix}_failure_bad_stir_query.blob")),
+        tampered_stir_blob,
+    )
+    .with_context(|| {
+        format!("failed to write blob fixture {prefix}_failure_bad_stir_query.blob")
+    })?;
+    fs::write(
+        out_dir.join(format!(
+            "{prefix}_failure_bad_ood_or_transcript_mismatch.blob"
+        )),
+        tampered_ood_blob,
+    )
+    .with_context(|| {
+        format!("failed to write blob fixture {prefix}_failure_bad_ood_or_transcript_mismatch.blob")
+    })?;
+
+    Ok(())
+}
+
+fn write_quintic_whir_family_outputs(
+    out_dir: &Path,
+    prefix: &str,
+    quintic: &QuinticFixture,
+    encode_blob: QuinticBlobEncoder,
+) -> anyhow::Result<()> {
+    let abi_statement = statement_to_abi(&quintic.statement_points, &quintic.statement_evaluations);
+    let abi_proof = proof_to_abi(&quintic.proof)?;
+
+    let mut tampered_raw_proof = quintic.proof.clone();
+    tampered_raw_proof.initial_commitment[0] ^= 1;
+    let tampered_abi_proof = proof_to_abi(&tampered_raw_proof)?;
+    let tampered_stir_proof = tamper_first_stir_query_quintic(&quintic.proof)?;
+    let tampered_stir_abi_proof = proof_to_abi(&tampered_stir_proof)?;
+    let tampered_ood_proof = tamper_first_initial_ood_answer_quintic(&quintic.proof)?;
+    let tampered_ood_abi_proof = proof_to_abi(&tampered_ood_proof)?;
+
+    write_abi_file(
+        &out_dir.join(format!("{prefix}_success_statement.abi")),
+        &abi_statement,
+    )?;
+    write_abi_file(
+        &out_dir.join(format!("{prefix}_success_proof.abi")),
+        &abi_proof,
+    )?;
+    write_abi_file(
+        &out_dir.join(format!("{prefix}_failure_bad_commitment_proof.abi")),
+        &tampered_abi_proof,
+    )?;
+    write_abi_file(
+        &out_dir.join(format!("{prefix}_failure_bad_stir_query_proof.abi")),
+        &tampered_stir_abi_proof,
+    )?;
+    write_abi_file(
+        &out_dir.join(format!(
+            "{prefix}_failure_bad_ood_or_transcript_mismatch_proof.abi"
+        )),
+        &tampered_ood_abi_proof,
+    )?;
+
+    let effective_digest_bytes =
+        effective_digest_bytes_for_security_bits(quintic.security.merkle_security_bits as usize);
+    let success_blob = encode_blob(
+        &quintic.statement_points,
+        &quintic.statement_evaluations,
+        &quintic.proof,
+        effective_digest_bytes,
+    )?;
+    let tampered_commitment_blob = encode_blob(
+        &quintic.statement_points,
+        &quintic.statement_evaluations,
+        &tampered_raw_proof,
+        effective_digest_bytes,
+    )?;
+    let tampered_stir_blob = encode_blob(
+        &quintic.statement_points,
+        &quintic.statement_evaluations,
+        &tampered_stir_proof,
+        effective_digest_bytes,
+    )?;
+    let tampered_ood_blob = encode_blob(
+        &quintic.statement_points,
+        &quintic.statement_evaluations,
         &tampered_ood_proof,
         effective_digest_bytes,
     )?;
