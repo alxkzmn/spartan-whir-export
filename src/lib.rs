@@ -3,6 +3,8 @@ pub mod fixed_config_codegen;
 pub mod fixture_export;
 pub mod octic_fixture;
 pub mod quartic_fixture;
+pub mod quintic_fixture;
+pub mod quintic_schedule_dump;
 pub mod spartan_context_fixture;
 pub mod transcript;
 pub mod utils;

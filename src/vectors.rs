@@ -6,7 +6,7 @@ use p3_merkle_tree::MerkleTreeMmcs;
 use p3_symmetric::PseudoCompressionFunction;
 use serde::Serialize;
 use spartan_whir::{
-    engine::{OcticBinExtension, QuarticBinExtension, F},
+    engine::{OcticBinExtension, QuarticBinExtension, QuinticExtension, F},
     KeccakFieldHash, KeccakNodeCompress,
 };
 use whir_p3::whir::merkle_multiproof::{
@@ -80,15 +80,19 @@ pub struct ExtensionHypercubeVector {
     pub packed_result: String,
 }
 
-/// Top-level JSON structure for field arithmetic test vectors (base, quartic, octic).
+/// Top-level JSON structure for field arithmetic test vectors.
 #[derive(Debug, Serialize)]
 pub struct FieldVectorFile {
     pub base: Vec<BaseFieldVector>,
     pub quartic: Vec<ExtensionFieldVector>,
+    pub quintic: Vec<ExtensionFieldVector>,
     pub octic: Vec<ExtensionFieldVector>,
     pub quartic_extrapolate: Vec<ExtensionExtrapolateVector>,
     pub quartic_eq_poly: Vec<ExtensionEqPolyVector>,
     pub quartic_hypercube: Vec<ExtensionHypercubeVector>,
+    pub quintic_extrapolate: Vec<ExtensionExtrapolateVector>,
+    pub quintic_eq_poly: Vec<ExtensionEqPolyVector>,
+    pub quintic_hypercube: Vec<ExtensionHypercubeVector>,
     pub octic_extrapolate: Vec<ExtensionExtrapolateVector>,
     pub octic_eq_poly: Vec<ExtensionEqPolyVector>,
     pub octic_hypercube: Vec<ExtensionHypercubeVector>,
@@ -182,13 +186,20 @@ pub fn generate_field_vectors() -> FieldVectorFile {
     }
 
     let quartic = generate_extension_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quintic = generate_extension_vectors::<QuinticExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let octic = generate_extension_vectors::<OcticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let quartic_extrapolate =
         generate_extrapolate_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quintic_extrapolate =
+        generate_extrapolate_vectors::<QuinticExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let quartic_eq_poly =
         generate_eq_poly_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quintic_eq_poly =
+        generate_eq_poly_vectors::<QuinticExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let quartic_hypercube =
         generate_hypercube_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quintic_hypercube =
+        generate_hypercube_vectors::<QuinticExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let octic_extrapolate =
         generate_extrapolate_vectors::<OcticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let octic_eq_poly = generate_eq_poly_vectors::<OcticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
@@ -198,10 +209,14 @@ pub fn generate_field_vectors() -> FieldVectorFile {
     FieldVectorFile {
         base,
         quartic,
+        quintic,
         octic,
         quartic_extrapolate,
         quartic_eq_poly,
         quartic_hypercube,
+        quintic_extrapolate,
+        quintic_eq_poly,
+        quintic_hypercube,
         octic_extrapolate,
         octic_eq_poly,
         octic_hypercube,
