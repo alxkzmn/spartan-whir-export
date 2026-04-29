@@ -17,6 +17,10 @@ path = "src/bin/export_fixtures_lir11_ff5_rsv3.rs"
 name = "export-fixtures-octic-k22-jb100-lir6-ff4-rsv1"
 path = "src/bin/export_fixtures_octic_k22_jb100_lir6_ff4_rsv1.rs"
 
+[[bin]]
+name = "export-fixtures-quintic-k22-jb100-ext5-lir4-ff4-rsv4"
+path = "src/bin/export_fixtures_quintic_k22_jb100_ext5_lir4_ff4_rsv4.rs"
+
 
 [dependencies]
 alloy-primitives = "0.8"
