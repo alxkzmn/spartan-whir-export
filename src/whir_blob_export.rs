@@ -74,6 +74,10 @@ const QUINTIC_ROUND0_NUM_QUERIES: usize = 39;
 const QUINTIC_ROUND1_NUM_QUERIES: usize = 39;
 const QUINTIC_ROUND2_NUM_QUERIES: usize = 22;
 const QUINTIC_FINAL_NUM_QUERIES: usize = 16;
+const QUINTIC_RSV3_POW28_ROUND0_NUM_QUERIES: usize = 38;
+const QUINTIC_RSV3_POW28_ROUND1_NUM_QUERIES: usize = 31;
+const QUINTIC_RSV3_POW28_ROUND2_NUM_QUERIES: usize = 19;
+const QUINTIC_RSV3_POW28_FINAL_NUM_QUERIES: usize = 14;
 const QUINTIC_ROW_LEN: usize = 16;
 const QUINTIC_FINAL_POLY_LEN: usize = 64;
 
@@ -473,6 +477,48 @@ pub fn encode_quintic_whir_k22_jb100_ext5_lir4_ff4_rsv4_blob_v1(
     raw_proof: &RawWhirProof5,
     effective_digest_bytes: usize,
 ) -> anyhow::Result<Vec<u8>> {
+    encode_quintic_whir_k22_jb100_ext5_lir4_ff4_blob_v1(
+        statement_points,
+        statement_evaluations,
+        raw_proof,
+        effective_digest_bytes,
+        [
+            QUINTIC_ROUND0_NUM_QUERIES,
+            QUINTIC_ROUND1_NUM_QUERIES,
+            QUINTIC_ROUND2_NUM_QUERIES,
+        ],
+        QUINTIC_FINAL_NUM_QUERIES,
+    )
+}
+
+pub fn encode_quintic_whir_k22_jb100_ext5_lir4_ff4_rsv3_pow28_blob_v1(
+    statement_points: &[Vec<EF5>],
+    statement_evaluations: &[EF5],
+    raw_proof: &RawWhirProof5,
+    effective_digest_bytes: usize,
+) -> anyhow::Result<Vec<u8>> {
+    encode_quintic_whir_k22_jb100_ext5_lir4_ff4_blob_v1(
+        statement_points,
+        statement_evaluations,
+        raw_proof,
+        effective_digest_bytes,
+        [
+            QUINTIC_RSV3_POW28_ROUND0_NUM_QUERIES,
+            QUINTIC_RSV3_POW28_ROUND1_NUM_QUERIES,
+            QUINTIC_RSV3_POW28_ROUND2_NUM_QUERIES,
+        ],
+        QUINTIC_RSV3_POW28_FINAL_NUM_QUERIES,
+    )
+}
+
+fn encode_quintic_whir_k22_jb100_ext5_lir4_ff4_blob_v1(
+    statement_points: &[Vec<EF5>],
+    statement_evaluations: &[EF5],
+    raw_proof: &RawWhirProof5,
+    effective_digest_bytes: usize,
+    round_queries: [usize; 3],
+    final_queries: usize,
+) -> anyhow::Result<Vec<u8>> {
     ensure!(
         effective_digest_bytes == 20,
         "fixed quintic WHIR blob currently expects 20 effective digest bytes"
@@ -506,12 +552,9 @@ pub fn encode_quintic_whir_k22_jb100_ext5_lir4_ff4_rsv4_blob_v1(
     let round0 = &raw_proof.rounds[0];
     let round1 = &raw_proof.rounds[1];
     let round2 = &raw_proof.rounds[2];
-    let round0_decomm_len =
-        validate_quintic_round_query_batch(round0, QUINTIC_ROUND0_NUM_QUERIES, true)?;
-    let round1_decomm_len =
-        validate_quintic_round_query_batch(round1, QUINTIC_ROUND1_NUM_QUERIES, false)?;
-    let round2_decomm_len =
-        validate_quintic_round_query_batch(round2, QUINTIC_ROUND2_NUM_QUERIES, false)?;
+    let round0_decomm_len = validate_quintic_round_query_batch(round0, round_queries[0], true)?;
+    let round1_decomm_len = validate_quintic_round_query_batch(round1, round_queries[1], false)?;
+    let round2_decomm_len = validate_quintic_round_query_batch(round2, round_queries[2], false)?;
 
     let final_poly = raw_proof
         .final_poly
@@ -538,7 +581,7 @@ pub fn encode_quintic_whir_k22_jb100_ext5_lir4_ff4_rsv4_blob_v1(
         final_sumcheck.pow_witnesses.is_empty(),
         "final sumcheck should not contain PoW witnesses"
     );
-    let final_decomm_len = validate_quintic_final_query_batch(final_query_batch)?;
+    let final_decomm_len = validate_quintic_final_query_batch(final_query_batch, final_queries)?;
 
     let mut out = Vec::new();
     out.extend_from_slice(MAGIC);
@@ -932,12 +975,13 @@ fn validate_octic_final_query_batch(
 
 fn validate_quintic_final_query_batch(
     query_batch: &RawQueryBatchOpening<F, EF5, u64, DIGEST_ELEMS>,
+    num_queries: usize,
 ) -> anyhow::Result<usize> {
     match query_batch {
         RawQueryBatchOpening::Extension { values, proof } => {
             ensure!(
-                values.len() == QUINTIC_FINAL_NUM_QUERIES,
-                "final expected 16 extension query rows"
+                values.len() == num_queries,
+                "final expected {num_queries} extension query rows"
             );
             ensure!(
                 values.iter().all(|row| row.len() == QUINTIC_ROW_LEN),

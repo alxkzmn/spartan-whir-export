@@ -168,6 +168,7 @@ pub fn build_default_quintic_schedule_dump() -> QuinticScheduleDump {
         DEFAULT_MERKLE_SECURITY_BITS,
         DEFAULT_POW_BITS,
         DEFAULT_MAX_STARTING_LOG_INV_RATE,
+        STRUCTURAL_PREFILTER_CAP,
     )
 }
 
@@ -177,6 +178,7 @@ pub fn build_quintic_schedule_dump(
     merkle_security_bits: u32,
     pow_bits: u32,
     max_starting_log_inv_rate: usize,
+    prefilter_cap: usize,
 ) -> QuinticScheduleDump {
     let security = SecurityConfig {
         security_level_bits: security_bits,
@@ -223,7 +225,7 @@ pub fn build_quintic_schedule_dump(
     }
 
     let total_candidates_considered = candidates.len();
-    let candidates = retain_prefiltered_candidates(candidates);
+    let candidates = retain_prefiltered_candidates(candidates, prefilter_cap);
 
     QuinticScheduleDump {
         schema_version: 1,
@@ -244,13 +246,16 @@ pub fn build_quintic_schedule_dump(
         selectable_prefilter: StructuralPrefilter {
             formula: "verifier structural score plus calibrated prover PoW score; verifier structural score = total_query_rows + total_row_values + merkle_decommitments + merkle_compressions + transcript_elements; prover PoW work units = sum(2^pow_bits)",
             keep_within_factor: 2.0,
-            cap: STRUCTURAL_PREFILTER_CAP,
+            cap: prefilter_cap,
         },
         candidates,
     }
 }
 
-fn retain_prefiltered_candidates(mut candidates: Vec<ScheduleCandidate>) -> Vec<ScheduleCandidate> {
+fn retain_prefiltered_candidates(
+    mut candidates: Vec<ScheduleCandidate>,
+    prefilter_cap: usize,
+) -> Vec<ScheduleCandidate> {
     let best_selectable_structural = candidates
         .iter()
         .filter(|candidate| {
@@ -312,7 +317,7 @@ fn retain_prefiltered_candidates(mut candidates: Vec<ScheduleCandidate>) -> Vec<
             .then_with(|| lhs.structural_score.cmp(&rhs.structural_score))
             .then_with(|| lhs.pow_work_units.cmp(&rhs.pow_work_units))
     });
-    fixed.truncate(STRUCTURAL_PREFILTER_CAP);
+    fixed.truncate(prefilter_cap);
 
     let mut comparison: Vec<_> = candidates
         .drain(..)
@@ -334,7 +339,7 @@ fn retain_prefiltered_candidates(mut candidates: Vec<ScheduleCandidate>) -> Vec<
             .then_with(|| lhs.structural_score.cmp(&rhs.structural_score))
             .then_with(|| lhs.pow_work_units.cmp(&rhs.pow_work_units))
     });
-    comparison.truncate(STRUCTURAL_PREFILTER_CAP);
+    comparison.truncate(prefilter_cap);
 
     fixed.extend(comparison);
     fixed

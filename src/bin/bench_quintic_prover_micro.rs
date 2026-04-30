@@ -7,9 +7,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use spartan_whir_export::{
     quintic_fixture::build_quintic_k22_jb100_fixture_with_folding_schedule_and_pow_bits,
-    quintic_schedule_dump::{
-        build_default_quintic_schedule_dump, ScheduleCandidate, STRUCTURAL_PREFILTER_CAP,
-    },
+    quintic_schedule_dump::{build_default_quintic_schedule_dump, STRUCTURAL_PREFILTER_CAP},
 };
 use whir_p3::parameters::FoldingFactor;
 
@@ -32,6 +30,21 @@ struct ProverMicroReport {
     max_candidates: usize,
     selected_labels: Vec<String>,
     by_label: Vec<CandidateTiming>,
+}
+
+#[derive(Debug, Clone)]
+struct CandidateSpec {
+    label: String,
+    requested_pow_bits: u32,
+    folding_variant: String,
+    first_round_folding_factor: usize,
+    rest_folding_factor: usize,
+    starting_log_inv_rate: usize,
+    rs_domain_initial_reduction_factor: usize,
+    selectable: bool,
+    security_bits_achieved: Option<f64>,
+    merkle_security_bits_achieved: usize,
+    max_derived_pow_bits: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,9 +88,15 @@ fn main() -> anyhow::Result<()> {
             options.release_rerun_hint()
         );
     }
+    if !target_cpu_native() && options.will_measure_candidates() {
+        anyhow::bail!(
+            "real prover timings must be compiled with `RUSTFLAGS='-C target-cpu=native'`; rerun with `RUSTFLAGS='-C target-cpu=native' cargo run --release --manifest-path spartan-whir-export/Cargo.toml --bin bench_quintic_prover_micro -- {}` or use --max-candidates 0 for schema checks",
+            options.release_rerun_hint()
+        );
+    }
 
-    let dump = build_default_quintic_schedule_dump();
-    let selected_candidates = selected_candidates(&dump.candidates, &options)?;
+    let (num_variables, candidates) = load_candidates(&options)?;
+    let selected_candidates = selected_candidates(&candidates, &options)?;
     let exe = std::env::current_exe()?;
     let by_label = selected_candidates
         .iter()
@@ -91,7 +110,7 @@ fn main() -> anyhow::Result<()> {
         compile_rustflags: compile_rustflags(),
         target_cpu_native: target_cpu_native(),
         release_required_for_timings: true,
-        num_variables: dump.num_variables,
+        num_variables,
         cap_seconds_per_candidate: options.cap.map(|cap| cap.as_secs_f64()),
         repetitions_per_candidate: options.repetitions,
         max_candidates: options.max_candidates,
@@ -110,6 +129,7 @@ struct Options {
     labels: Vec<String>,
     cap: Option<Duration>,
     repetitions: usize,
+    schedule: Option<PathBuf>,
 }
 
 impl Options {
@@ -119,6 +139,7 @@ impl Options {
         let mut labels = Vec::new();
         let mut cap = Some(Duration::from_secs(120));
         let mut repetitions = 3usize;
+        let mut schedule = None;
         let mut cursor = 1;
 
         while cursor < args.len() {
@@ -168,6 +189,13 @@ impl Options {
                         .ok_or_else(|| anyhow::anyhow!("missing value for --repetitions"))?
                         .parse()?;
                 }
+                "--schedule" => {
+                    cursor += 1;
+                    schedule =
+                        Some(PathBuf::from(args.get(cursor).ok_or_else(|| {
+                            anyhow::anyhow!("missing value for --schedule")
+                        })?));
+                }
                 value if value.starts_with("--") => {
                     anyhow::bail!("unknown option {value}");
                 }
@@ -184,6 +212,7 @@ impl Options {
             labels,
             cap,
             repetitions: repetitions.max(1),
+            schedule,
         })
     }
 
@@ -198,22 +227,123 @@ impl Options {
         } else {
             args.push(format!("--labels {}", self.labels.join(",")));
         }
+        if let Some(schedule) = &self.schedule {
+            args.push(format!("--schedule {}", schedule.display()));
+        }
+        match self.cap {
+            Some(cap) if cap != Duration::from_secs(120) => {
+                args.push(format!("--cap-seconds {}", cap.as_secs()));
+            }
+            None => args.push("--no-cap".to_owned()),
+            _ => {}
+        }
+        if self.repetitions != 3 {
+            args.push(format!("--repetitions {}", self.repetitions));
+        }
         args.push(self.output.display().to_string());
         args.join(" ")
     }
 }
 
+fn load_candidates(options: &Options) -> anyhow::Result<(usize, Vec<CandidateSpec>)> {
+    if let Some(path) = &options.schedule {
+        let value: serde_json::Value = serde_json::from_slice(&std::fs::read(path)?)?;
+        let num_variables = value
+            .get("num_variables")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(22) as usize;
+        let candidates = value
+            .get("candidates")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| anyhow::anyhow!("schedule JSON is missing candidates array"))?
+            .iter()
+            .map(candidate_spec_from_json)
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        return Ok((num_variables, candidates));
+    }
+
+    let dump = build_default_quintic_schedule_dump();
+    let candidates = dump
+        .candidates
+        .iter()
+        .map(|candidate| CandidateSpec {
+            label: candidate.label.clone(),
+            requested_pow_bits: candidate.requested_pow_bits,
+            folding_variant: candidate.folding_schedule.variant.to_owned(),
+            first_round_folding_factor: candidate.folding_schedule.first_round,
+            rest_folding_factor: candidate.folding_schedule.rest,
+            starting_log_inv_rate: candidate.starting_log_inv_rate,
+            rs_domain_initial_reduction_factor: candidate.rs_domain_initial_reduction_factor,
+            selectable: candidate.selectable,
+            security_bits_achieved: candidate.security_bits_achieved,
+            merkle_security_bits_achieved: candidate.merkle_security_bits_achieved,
+            max_derived_pow_bits: candidate.max_derived_pow_bits,
+        })
+        .collect();
+    Ok((dump.num_variables, candidates))
+}
+
+fn candidate_spec_from_json(value: &serde_json::Value) -> anyhow::Result<CandidateSpec> {
+    let folding = value
+        .get("folding_schedule")
+        .ok_or_else(|| anyhow::anyhow!("candidate is missing folding_schedule"))?;
+    Ok(CandidateSpec {
+        label: string_field(value, "label")?.to_owned(),
+        requested_pow_bits: u32_field(value, "requested_pow_bits")?,
+        folding_variant: string_field(folding, "variant")?.to_owned(),
+        first_round_folding_factor: usize_field(folding, "first_round")?,
+        rest_folding_factor: usize_field(folding, "rest")?,
+        starting_log_inv_rate: usize_field(value, "starting_log_inv_rate")?,
+        rs_domain_initial_reduction_factor: usize_field(
+            value,
+            "rs_domain_initial_reduction_factor",
+        )?,
+        selectable: value
+            .get("selectable")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+        security_bits_achieved: value
+            .get("security_bits_achieved")
+            .and_then(serde_json::Value::as_f64),
+        merkle_security_bits_achieved: usize_field(value, "merkle_security_bits_achieved")?,
+        max_derived_pow_bits: value
+            .get("max_derived_pow_bits")
+            .and_then(serde_json::Value::as_u64)
+            .map(|value| value as usize),
+    })
+}
+
+fn string_field<'a>(value: &'a serde_json::Value, key: &str) -> anyhow::Result<&'a str> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("missing string field {key}"))
+}
+
+fn usize_field(value: &serde_json::Value, key: &str) -> anyhow::Result<usize> {
+    Ok(value
+        .get(key)
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| anyhow::anyhow!("missing integer field {key}"))? as usize)
+}
+
+fn u32_field(value: &serde_json::Value, key: &str) -> anyhow::Result<u32> {
+    Ok(usize_field(value, key)? as u32)
+}
+
 fn selected_candidates(
-    candidates: &[ScheduleCandidate],
+    candidates: &[CandidateSpec],
     options: &Options,
-) -> anyhow::Result<Vec<ScheduleCandidate>> {
-    let survivors = structural_survivors(candidates);
+) -> anyhow::Result<Vec<CandidateSpec>> {
     if options.labels.is_empty() {
+        let survivors = structural_survivors(candidates);
         return Ok(survivors.into_iter().take(options.max_candidates).collect());
     }
 
-    let by_label = survivors
-        .into_iter()
+    let by_label = candidates
+        .iter()
+        .filter(|candidate| target_eligible(candidate))
+        .cloned()
         .map(|candidate| (candidate.label.clone(), candidate))
         .collect::<std::collections::BTreeMap<_, _>>();
     options
@@ -228,7 +358,7 @@ fn selected_candidates(
         .collect()
 }
 
-fn structural_survivors(candidates: &[ScheduleCandidate]) -> Vec<ScheduleCandidate> {
+fn structural_survivors(candidates: &[CandidateSpec]) -> Vec<CandidateSpec> {
     candidates
         .iter()
         .filter(|candidate| target_eligible(candidate))
@@ -237,7 +367,7 @@ fn structural_survivors(candidates: &[ScheduleCandidate]) -> Vec<ScheduleCandida
         .collect()
 }
 
-fn target_eligible(candidate: &ScheduleCandidate) -> bool {
+fn target_eligible(candidate: &CandidateSpec) -> bool {
     candidate.selectable
         && candidate
             .security_bits_achieved
@@ -250,7 +380,7 @@ fn target_eligible(candidate: &ScheduleCandidate) -> bool {
 
 fn run_candidate_child(
     exe: &PathBuf,
-    candidate: &ScheduleCandidate,
+    candidate: &CandidateSpec,
     cap: Option<Duration>,
     repetitions: usize,
 ) -> CandidateTiming {
@@ -259,7 +389,7 @@ fn run_candidate_child(
 
 fn run_candidate_child_with_repetitions(
     exe: &PathBuf,
-    candidate: &ScheduleCandidate,
+    candidate: &CandidateSpec,
     cap: Option<Duration>,
     repetitions: usize,
 ) -> CandidateTiming {
@@ -275,7 +405,7 @@ fn run_candidate_child_with_repetitions(
 
 fn run_candidate_child_once(
     exe: &PathBuf,
-    candidate: &ScheduleCandidate,
+    candidate: &CandidateSpec,
     cap: Option<Duration>,
     repetition: usize,
 ) -> RepetitionTiming {
@@ -283,9 +413,9 @@ fn run_candidate_child_once(
         .arg("--run-one")
         .arg(&candidate.label)
         .arg(candidate.requested_pow_bits.to_string())
-        .arg(candidate.folding_schedule.variant)
-        .arg(candidate.folding_schedule.first_round.to_string())
-        .arg(candidate.folding_schedule.rest.to_string())
+        .arg(&candidate.folding_variant)
+        .arg(candidate.first_round_folding_factor.to_string())
+        .arg(candidate.rest_folding_factor.to_string())
         .arg(candidate.starting_log_inv_rate.to_string())
         .arg(candidate.rs_domain_initial_reduction_factor.to_string())
         .stdout(Stdio::piped())
@@ -383,6 +513,10 @@ fn run_one_child(args: &[String]) -> anyhow::Result<()> {
         "--run-one prover timings must be run from a release build"
     );
     anyhow::ensure!(
+        target_cpu_native(),
+        "--run-one prover timings must be compiled with RUSTFLAGS='-C target-cpu=native'"
+    );
+    anyhow::ensure!(
         args.len() == 9,
         "usage: bench_quintic_prover_micro --run-one <label> <pow_bits> <variant> <first_round_folding_factor> <rest_folding_factor> <lir> <rsv>"
     );
@@ -465,7 +599,7 @@ fn run_one_child(args: &[String]) -> anyhow::Result<()> {
 }
 
 fn aggregate_candidate_timing(
-    candidate: &ScheduleCandidate,
+    candidate: &CandidateSpec,
     samples: Vec<RepetitionTiming>,
 ) -> CandidateTiming {
     let timed_out = samples.iter().any(|sample| sample.timed_out);
@@ -478,6 +612,14 @@ fn aggregate_candidate_timing(
         .filter(|sample| sample.status == "ok" && !sample.timed_out)
         .filter_map(|sample| sample.seconds)
         .collect::<Vec<_>>();
+    if seconds.is_empty() && timed_out {
+        seconds.extend(
+            samples
+                .iter()
+                .filter(|sample| sample.timed_out)
+                .filter_map(|sample| sample.seconds),
+        );
+    }
     seconds.sort_by(|lhs, rhs| lhs.partial_cmp(rhs).unwrap_or(std::cmp::Ordering::Equal));
 
     let median_seconds = seconds.get(seconds.len() / 2).copied();
