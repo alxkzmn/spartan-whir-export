@@ -61,6 +61,17 @@ pub fn build_quintic_k22_jb100_ext5_lir4_ff4_rsv4_fixture() -> anyhow::Result<Qu
     )
 }
 
+pub fn build_quintic_k22_jb100_ext5_lir4_ff4_rsv3_pow28_fixture() -> anyhow::Result<QuinticFixture>
+{
+    build_quintic_k22_jb100_fixture_with_folding_schedule_and_pow_bits(
+        28,
+        FoldingFactor::Constant(4),
+        4,
+        4,
+        3,
+    )
+}
+
 pub fn tamper_first_stir_query_quintic(proof: &RawWhirProof5) -> anyhow::Result<RawWhirProof5> {
     crate::quartic_fixture::tamper_first_stir_query(proof)
 }

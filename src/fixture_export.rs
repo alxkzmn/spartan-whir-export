@@ -25,6 +25,7 @@ use crate::{
         tamper_first_stir_query, QuarticFixture, RawWhirProof4, EF4,
     },
     quintic_fixture::{
+        build_quintic_k22_jb100_ext5_lir4_ff4_rsv3_pow28_fixture,
         build_quintic_k22_jb100_ext5_lir4_ff4_rsv4_fixture,
         tamper_first_initial_ood_answer_quintic, tamper_first_stir_query_quintic, QuinticFixture,
         RawWhirProof5, EF5,
@@ -39,6 +40,7 @@ use crate::{
     whir_blob_export::{
         encode_octic_whir_k22_jb100_blob_v1, encode_quartic_whir_blob_v1,
         encode_quartic_whir_lir11_blob_v1,
+        encode_quintic_whir_k22_jb100_ext5_lir4_ff4_rsv3_pow28_blob_v1,
         encode_quintic_whir_k22_jb100_ext5_lir4_ff4_rsv4_blob_v1,
     },
     ChallengerTranscriptTrace, MerkleLeafHashFixture, MerkleMultiproofFixture,
@@ -161,6 +163,26 @@ pub fn export_quintic_k22_jb100_ext5_lir4_ff4_rsv4_fixtures(out_dir: &Path) -> a
         "transcript_trace_quintic_k22_jb100_ext5_lir4_ff4_rsv4.json",
         "transcript_trace_quintic_k22_jb100_ext5_lir4_ff4_rsv4.abi",
         encode_quintic_whir_k22_jb100_ext5_lir4_ff4_rsv4_blob_v1,
+    )
+}
+
+pub fn export_quintic_k22_jb100_ext5_lir4_ff4_rsv3_pow28_fixtures(
+    out_dir: &Path,
+) -> anyhow::Result<()> {
+    let quintic = build_quintic_k22_jb100_ext5_lir4_ff4_rsv3_pow28_fixture()?;
+    write_quintic_fixed_config_named(
+        out_dir,
+        &quintic,
+        "QuinticWhirFixedConfig_k22_jb100_ext5_lir4_ff4_rsv3_pow28.sol",
+        "QuinticWhirFixedConfig_k22_jb100_ext5_lir4_ff4_rsv3_pow28",
+    )?;
+    write_quintic_schedule_outputs(
+        out_dir,
+        &quintic,
+        "quintic_whir_k22_jb100_ext5_lir4_ff4_rsv3_pow28",
+        "transcript_trace_quintic_k22_jb100_ext5_lir4_ff4_rsv3_pow28.json",
+        "transcript_trace_quintic_k22_jb100_ext5_lir4_ff4_rsv3_pow28.abi",
+        encode_quintic_whir_k22_jb100_ext5_lir4_ff4_rsv3_pow28_blob_v1,
     )
 }
 
