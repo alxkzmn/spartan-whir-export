@@ -1214,7 +1214,7 @@ mod tests {
     fn constant_ff3_lir5_rsv3_spot_check_matches_whir_p3() {
         let candidate = spot_check_candidate();
 
-        assert_eq!(candidate.label, "constant_ff3_lir5_rsv3");
+        assert_eq!(candidate.label, "constant_pow30_ff3_lir5_rsv3");
         assert!(candidate.selectable);
         assert_eq!(candidate.rounds.len(), 5);
         assert_eq!(candidate.final_sumcheck_rounds, Some(4));
@@ -1262,12 +1262,12 @@ mod tests {
             .collect();
 
         for expected in [
-            ("cfsr_ff5_rest4_lir5_rsv4", false),
-            ("constant_ff4_lir5_rsv4", false),
-            ("cfsr_ff4_rest3_lir5_rsv3", false),
-            ("constant_ff4_lir4_rsv3", false),
-            ("constant_ff4_lir4_rsv4", false),
-            ("constant_ff3_lir5_rsv3", false),
+            ("cfsr_pow27_ff5_rest4_lir3_rsv4", false),
+            ("constant_pow27_ff4_lir3_rsv3", false),
+            ("cfsr_pow27_ff6_rest5_lir3_rsv4", false),
+            ("cfsr_pow28_ff6_rest5_lir3_rsv4", false),
+            ("cfsr_pow27_ff5_rest4_lir2_rsv3", false),
+            ("constant_pow27_ff6_lir3_rsv4", false),
         ] {
             assert!(labels.contains(&expected), "missing {expected:?}");
         }

@@ -159,8 +159,8 @@ fn profile_initial_commit(candidate: &ScheduleCandidate) -> anyhow::Result<Profi
     let (root, _prover_data) = timed(&mut timings, "initial_commit_merkle_commit_matrix", || {
         let merkle_tree =
             MerkleTreeMmcs::<F, u64, KeccakFieldHash, KeccakNodeCompress, DIGEST_ELEMS>::new(
-                config.merkle_hash.clone(),
-                config.merkle_compress.clone(),
+                config.merkle_hash,
+                config.merkle_compress,
             );
         merkle_tree.commit_matrix(folded_matrix)
     });

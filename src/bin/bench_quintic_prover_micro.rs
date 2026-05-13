@@ -362,8 +362,8 @@ fn structural_survivors(candidates: &[CandidateSpec]) -> Vec<CandidateSpec> {
     candidates
         .iter()
         .filter(|candidate| target_eligible(candidate))
-        .cloned()
         .take(STRUCTURAL_PREFILTER_CAP)
+        .cloned()
         .collect()
 }
 
@@ -627,9 +627,7 @@ fn aggregate_candidate_timing(
     let max_seconds = seconds.last().copied();
     let status = if timed_out {
         "timeout"
-    } else if samples.iter().any(|sample| sample.status == "error") {
-        "error"
-    } else if seconds.is_empty() {
+    } else if seconds.is_empty() || samples.iter().any(|sample| sample.status == "error") {
         "error"
     } else {
         "ok"

@@ -148,13 +148,11 @@ where
     let mut statement_points = Vec::new();
     let mut statement_evaluations = Vec::new();
 
-    for seed in [3_u32] {
-        let point = WhirPoint::expand_from_univariate(EF::from(F::from_u32(seed)), num_variables);
-        let evaluation = poly_evals.evaluate_hypercube_base(&point);
-        statement_points.push(point.as_slice().to_vec());
-        statement_evaluations.push(evaluation);
-        user_statement.add_evaluated_constraint(point, evaluation);
-    }
+    let point = WhirPoint::expand_from_univariate(EF::from(F::from_u32(3)), num_variables);
+    let evaluation = poly_evals.evaluate_hypercube_base(&point);
+    statement_points.push(point.as_slice().to_vec());
+    statement_evaluations.push(evaluation);
+    user_statement.add_evaluated_constraint(point, evaluation);
 
     let mut domain_separator = WhirFsDomainSeparator::<EF, F>::new(vec![]);
     domain_separator.commit_statement::<_, _, _, DIGEST_ELEMS>(&config);

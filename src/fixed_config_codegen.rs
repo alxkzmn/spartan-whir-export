@@ -113,11 +113,7 @@ where
         "FINAL_FOLDED_DOMAIN_GEN",
         final_round.folded_domain_gen.as_canonical_u32() as usize,
     );
-    emit_const(
-        &mut out,
-        "EFFECTIVE_DIGEST_BYTES",
-        effective_digest_bytes as usize,
-    );
+    emit_const(&mut out, "EFFECTIVE_DIGEST_BYTES", effective_digest_bytes);
     emit_const(
         &mut out,
         "EXPECT_FINAL_QUERY_BATCH",

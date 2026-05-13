@@ -55,7 +55,7 @@ fn main() -> anyhow::Result<()> {
 
     let report = calibrate(&options)?;
     let json = serde_json::to_string_pretty(&report)?;
-    if options.output == PathBuf::from("-") {
+    if options.output.as_os_str() == "-" {
         println!("{json}");
     } else {
         std::fs::write(options.output, json + "\n")?;
