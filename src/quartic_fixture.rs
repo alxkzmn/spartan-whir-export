@@ -199,7 +199,7 @@ where
             &mut proof,
             &mut prover_challenger,
             &final_statement,
-            merkle_tree,
+            &merkle_tree,
         )
         .map_err(|err| anyhow::anyhow!("prove failed: {err:?}"))?;
 
