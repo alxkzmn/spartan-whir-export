@@ -7,6 +7,7 @@ use p3_dft::{Radix2DFTSmallBatch, TwoAdicSubgroupDft};
 use p3_field::PrimeCharacteristicRing;
 use p3_matrix::{dense::RowMajorMatrixView, Matrix};
 use p3_merkle_tree::MerkleTreeMmcs;
+use p3_symmetric::Hash;
 use serde::Serialize;
 use spartan_whir::{
     engine::{KeccakFieldHash, KeccakNodeCompress, F},
@@ -158,14 +159,16 @@ fn profile_initial_commit(candidate: &ScheduleCandidate) -> anyhow::Result<Profi
     });
     let (root, _prover_data) = timed(&mut timings, "initial_commit_merkle_commit_matrix", || {
         let merkle_tree =
-            MerkleTreeMmcs::<F, u64, KeccakFieldHash, KeccakNodeCompress, DIGEST_ELEMS>::new(
+            MerkleTreeMmcs::<F, u64, KeccakFieldHash, KeccakNodeCompress, 2, DIGEST_ELEMS>::new(
                 config.merkle_hash,
                 config.merkle_compress,
+                0,
             );
         merkle_tree.commit_matrix(folded_matrix)
     });
-    proof.initial_commitment = *root.as_ref();
-    prover_challenger.observe(root);
+    let root_digest = root.roots()[0];
+    proof.initial_commitment = root_digest;
+    prover_challenger.observe(Hash::from(root_digest));
     timed(&mut timings, "initial_commit_ood_evaluations", || {
         for _ in 0..config.commitment_ood_samples {
             let point = WhirPoint::expand_from_univariate(

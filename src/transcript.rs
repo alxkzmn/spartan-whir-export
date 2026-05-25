@@ -3,7 +3,7 @@ use p3_challenger::{CanObserve, CanSample, CanSampleBits, FieldChallenger, Grind
 use p3_field::PrimeField32;
 use p3_symmetric::Hash;
 use serde::Serialize;
-use spartan_whir::{engine::F, new_keccak_challenger, KeccakChallenger};
+use spartan_whir::{engine::F, keccak_challenger, KeccakChallenger};
 
 use crate::ChallengerTranscriptEvent;
 
@@ -44,7 +44,7 @@ pub struct TranscriptTraceFile {
 
 impl TraceChallenger {
     pub fn new() -> Self {
-        let inner = new_keccak_challenger();
+        let inner = keccak_challenger();
         Self {
             inner,
             events: Vec::new(),

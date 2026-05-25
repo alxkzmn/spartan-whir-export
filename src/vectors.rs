@@ -240,12 +240,12 @@ pub fn generate_merkle_vectors(effective_digest_bytes: usize) -> anyhow::Result<
 
     let hasher = KeccakFieldHash::new(effective_digest_bytes);
     let compress = KeccakNodeCompress::new(effective_digest_bytes);
-    let mmcs = MerkleTreeMmcs::<F, u64, KeccakFieldHash, KeccakNodeCompress, DIGEST_ELEMS>::new(
-        hasher, compress,
+    let mmcs = MerkleTreeMmcs::<F, u64, KeccakFieldHash, KeccakNodeCompress, 2, DIGEST_ELEMS>::new(
+        hasher, compress, 0,
     );
 
     let (root, prover_data) = mmcs.commit_matrix(matrix);
-    let expected_root = *root.as_ref();
+    let expected_root = root.roots()[0];
 
     let leaf_hashes: Vec<[u64; DIGEST_ELEMS]> = rows
         .iter()

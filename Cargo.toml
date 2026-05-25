@@ -27,14 +27,14 @@ alloy-primitives = "0.8"
 alloy-sol-types = "0.8"
 anyhow = "1"
 hex = "0.4"
-p3-challenger = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-commit = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-dft = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-field = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-keccak = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-matrix = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-merkle-tree = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-symmetric = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
+p3-challenger = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-commit = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-dft = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-field = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-keccak = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-matrix = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-merkle-tree = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-symmetric = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 spartan-whir = { path = "../spartan-whir" }
