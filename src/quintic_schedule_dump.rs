@@ -399,6 +399,8 @@ fn candidate_report(
         folding_factor: schedule.first_round,
         starting_log_inv_rate,
         rs_domain_initial_reduction_factor,
+        folding_schedule: None,
+        round_log_inv_rates: Vec::new(),
     };
     let protocol_params =
         protocol_params_for_fixture_with_folding_factor(security, whir, folding_schedule);

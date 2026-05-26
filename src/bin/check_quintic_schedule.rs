@@ -36,6 +36,8 @@ fn main() -> anyhow::Result<()> {
         folding_factor,
         starting_log_inv_rate,
         rs_domain_initial_reduction_factor,
+        folding_schedule: None,
+        round_log_inv_rates: Vec::new(),
     };
     let folding = match second_round_folding_factor {
         Some(second_round) => FoldingFactor::ConstantFromSecondRound(folding_factor, second_round),

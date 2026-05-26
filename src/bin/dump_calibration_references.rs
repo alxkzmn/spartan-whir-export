@@ -119,8 +119,11 @@ where
     EF: p3_field::ExtensionField<F> + TwoAdicField,
 {
     let folding_factor = FoldingFactor::Constant(whir_params.folding_factor);
-    let protocol_params =
-        protocol_params_for_fixture_with_folding_factor(security, whir_params, folding_factor);
+    let protocol_params = protocol_params_for_fixture_with_folding_factor(
+        security,
+        whir_params.clone(),
+        folding_factor,
+    );
     let config = build_checked_whir_config::<EF>(num_variables, &protocol_params)?;
     let mut log_inv_rate = whir_params.starting_log_inv_rate;
     let mut rounds = Vec::new();

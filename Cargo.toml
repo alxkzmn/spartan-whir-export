@@ -37,5 +37,5 @@ p3-merkle-tree = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d59
 p3-symmetric = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-spartan-whir = { path = "../spartan-whir" }
+spartan-whir = { path = "../spartan-whir", features = ["whir-p3-backend"] }
 whir-p3 = { path = "../whir-p3", default-features = false }

@@ -27,6 +27,8 @@ pub fn quintic_whir_params_with_pow_bits(
         folding_factor,
         starting_log_inv_rate,
         rs_domain_initial_reduction_factor,
+        folding_schedule: None,
+        round_log_inv_rates: Vec::new(),
     }
 }
 

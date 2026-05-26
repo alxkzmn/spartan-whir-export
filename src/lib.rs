@@ -20,6 +20,8 @@ pub const FIXTURE_WHIR_PARAMS: WhirParams = WhirParams {
     folding_factor: 4,
     starting_log_inv_rate: 6,
     rs_domain_initial_reduction_factor: 1,
+    folding_schedule: None,
+    round_log_inv_rates: Vec::new(),
 };
 
 pub const FIXTURE_WHIR_PARAMS_LIR11: WhirParams = WhirParams {
@@ -27,6 +29,8 @@ pub const FIXTURE_WHIR_PARAMS_LIR11: WhirParams = WhirParams {
     folding_factor: 5,
     starting_log_inv_rate: 11,
     rs_domain_initial_reduction_factor: 3,
+    folding_schedule: None,
+    round_log_inv_rates: Vec::new(),
 };
 
 sol! {

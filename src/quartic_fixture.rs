@@ -5,8 +5,7 @@ use p3_field::{BasedVectorSpace, ExtensionField, PrimeCharacteristicRing, TwoAdi
 use spartan_whir::{
     effective_digest_bytes_for_security_bits,
     engine::{ExtField, QuarticBinExtension, F},
-    KeccakFieldHash, KeccakNodeCompress, SecurityConfig, SoundnessAssumption, SumcheckStrategy,
-    WhirParams,
+    KeccakFieldHash, KeccakNodeCompress, SecurityConfig, SoundnessAssumption, WhirParams,
 };
 use whir_p3::{
     fiat_shamir::domain_separator::DomainSeparator as WhirFsDomainSeparator,
@@ -15,7 +14,7 @@ use whir_p3::{
     whir::{
         committer::{reader::CommitmentReader, writer::CommitmentWriter},
         constraints::statement::{initial::InitialStatement, EqStatement},
-        parameters::WhirConfig,
+        parameters::{SumcheckStrategy, WhirConfig},
         proof::{QueryBatchOpening as RawQueryBatchOpening, WhirProof as RawWhirProof},
         prover::Prover,
         verifier::Verifier,
@@ -120,7 +119,7 @@ where
 {
     build_standalone_fixture_with_folding_factor(
         security,
-        whir_params,
+        whir_params.clone(),
         num_variables,
         FoldingFactor::Constant(whir_params.folding_factor),
     )
@@ -135,8 +134,11 @@ pub fn build_standalone_fixture_with_folding_factor<EF>(
 where
     EF: ExtField + BasedVectorSpace<F> + Copy + From<F>,
 {
-    let protocol_params =
-        protocol_params_for_fixture_with_folding_factor(security, whir_params, folding_factor);
+    let protocol_params = protocol_params_for_fixture_with_folding_factor(
+        security,
+        whir_params.clone(),
+        folding_factor,
+    );
     let config = build_checked_whir_config::<EF>(num_variables, &protocol_params)?;
 
     let polynomial: Vec<F> = (0..(1 << num_variables))
@@ -258,7 +260,7 @@ pub fn protocol_params_for_fixture(
 ) -> ProtocolParameters<KeccakFieldHash, KeccakNodeCompress> {
     protocol_params_for_fixture_with_folding_factor(
         security,
-        whir_params,
+        whir_params.clone(),
         FoldingFactor::Constant(whir_params.folding_factor),
     )
 }

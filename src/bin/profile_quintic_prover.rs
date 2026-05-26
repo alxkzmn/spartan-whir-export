@@ -11,7 +11,7 @@ use p3_symmetric::Hash;
 use serde::Serialize;
 use spartan_whir::{
     engine::{KeccakFieldHash, KeccakNodeCompress, F},
-    SumcheckStrategy, WhirParams,
+    WhirParams,
 };
 use spartan_whir_export::{
     quartic_fixture::{protocol_params_for_fixture_with_folding_factor, GenericWhirProof},
@@ -23,7 +23,10 @@ use spartan_whir_export::{
 use whir_p3::{
     fiat_shamir::domain_separator::DomainSeparator as WhirFsDomainSeparator,
     poly::{evals::EvaluationsList as WhirEvaluations, multilinear::MultilinearPoint as WhirPoint},
-    whir::{constraints::statement::EqStatement, parameters::WhirConfig},
+    whir::{
+        constraints::statement::EqStatement,
+        parameters::{SumcheckStrategy, WhirConfig},
+    },
 };
 
 #[derive(Debug, Serialize)]
@@ -89,6 +92,8 @@ fn profile_initial_commit(candidate: &ScheduleCandidate) -> anyhow::Result<Profi
         folding_factor: candidate.folding_schedule.first_round,
         starting_log_inv_rate: candidate.starting_log_inv_rate,
         rs_domain_initial_reduction_factor: candidate.rs_domain_initial_reduction_factor,
+        folding_schedule: None,
+        round_log_inv_rates: Vec::new(),
     };
     let folding_schedule = match candidate.folding_schedule.variant {
         "Constant" => {

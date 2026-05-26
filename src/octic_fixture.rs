@@ -19,6 +19,8 @@ pub const OCTIC_K22_JB100_WHIR_PARAMS: WhirParams = WhirParams {
     folding_factor: 4,
     starting_log_inv_rate: 6,
     rs_domain_initial_reduction_factor: 1,
+    folding_schedule: None,
+    round_log_inv_rates: Vec::new(),
 };
 
 pub fn build_octic_k22_jb100_fixture() -> anyhow::Result<OcticFixture> {
