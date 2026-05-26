@@ -9,20 +9,33 @@ publish = false
 name = "export-fixtures"
 path = "src/bin/export_fixtures.rs"
 
+[[bin]]
+name = "export-fixtures-lir11-ff5-rsv3"
+path = "src/bin/export_fixtures_lir11_ff5_rsv3.rs"
+
+[[bin]]
+name = "export-fixtures-octic-k22-jb100-lir6-ff4-rsv1"
+path = "src/bin/export_fixtures_octic_k22_jb100_lir6_ff4_rsv1.rs"
+
+[[bin]]
+name = "export-fixtures-quintic-k22-jb100-ext5-lir4-ff4-rsv4"
+path = "src/bin/export_fixtures_quintic_k22_jb100_ext5_lir4_ff4_rsv4.rs"
+
+
 [dependencies]
 alloy-primitives = "0.8"
 alloy-sol-types = "0.8"
 anyhow = "1"
 hex = "0.4"
-p3-challenger = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-commit = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-dft = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-field = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-keccak = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-matrix = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-merkle-tree = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
-p3-symmetric = { git = "https://github.com/Plonky3/Plonky3.git", rev = "c38eb05" }
+p3-challenger = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-commit = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-dft = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-field = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-keccak = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-matrix = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-merkle-tree = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
+p3-symmetric = { git = "https://github.com/Plonky3/Plonky3.git", rev = "fc7d591e6ec54b9220ed120e1ba0f8978a9c2391" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-spartan-whir = { path = "../spartan-whir" }
+spartan-whir = { path = "../spartan-whir", features = ["whir-p3-backend"] }
 whir-p3 = { path = "../whir-p3", default-features = false }

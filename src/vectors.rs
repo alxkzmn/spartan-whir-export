@@ -6,7 +6,7 @@ use p3_merkle_tree::MerkleTreeMmcs;
 use p3_symmetric::PseudoCompressionFunction;
 use serde::Serialize;
 use spartan_whir::{
-    engine::{OcticBinExtension, QuarticBinExtension, F},
+    engine::{OcticBinExtension, QuarticBinExtension, QuinticExtension, F},
     KeccakFieldHash, KeccakNodeCompress,
 };
 use whir_p3::whir::merkle_multiproof::{
@@ -23,6 +23,8 @@ use crate::{
 };
 
 const FIELD_VECTOR_COUNT: usize = 16;
+const EQ_POLY_DIMENSIONS: [usize; 6] = [0, 1, 2, 3, 4, 6];
+const HYPERCUBE_NUM_VARIABLES: [usize; 6] = [0, 1, 2, 3, 4, 5];
 
 /// One KoalaBear base-field arithmetic test vector: two operands and expected results.
 #[derive(Debug, Serialize)]
@@ -78,15 +80,19 @@ pub struct ExtensionHypercubeVector {
     pub packed_result: String,
 }
 
-/// Top-level JSON structure for field arithmetic test vectors (base, quartic, octic).
+/// Top-level JSON structure for field arithmetic test vectors.
 #[derive(Debug, Serialize)]
 pub struct FieldVectorFile {
     pub base: Vec<BaseFieldVector>,
     pub quartic: Vec<ExtensionFieldVector>,
+    pub quintic: Vec<ExtensionFieldVector>,
     pub octic: Vec<ExtensionFieldVector>,
     pub quartic_extrapolate: Vec<ExtensionExtrapolateVector>,
     pub quartic_eq_poly: Vec<ExtensionEqPolyVector>,
     pub quartic_hypercube: Vec<ExtensionHypercubeVector>,
+    pub quintic_extrapolate: Vec<ExtensionExtrapolateVector>,
+    pub quintic_eq_poly: Vec<ExtensionEqPolyVector>,
+    pub quintic_hypercube: Vec<ExtensionHypercubeVector>,
     pub octic_extrapolate: Vec<ExtensionExtrapolateVector>,
     pub octic_eq_poly: Vec<ExtensionEqPolyVector>,
     pub octic_hypercube: Vec<ExtensionHypercubeVector>,
@@ -180,13 +186,20 @@ pub fn generate_field_vectors() -> FieldVectorFile {
     }
 
     let quartic = generate_extension_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quintic = generate_extension_vectors::<QuinticExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let octic = generate_extension_vectors::<OcticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let quartic_extrapolate =
         generate_extrapolate_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quintic_extrapolate =
+        generate_extrapolate_vectors::<QuinticExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let quartic_eq_poly =
         generate_eq_poly_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quintic_eq_poly =
+        generate_eq_poly_vectors::<QuinticExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let quartic_hypercube =
         generate_hypercube_vectors::<QuarticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
+    let quintic_hypercube =
+        generate_hypercube_vectors::<QuinticExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let octic_extrapolate =
         generate_extrapolate_vectors::<OcticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
     let octic_eq_poly = generate_eq_poly_vectors::<OcticBinExtension>(&mut rng, FIELD_VECTOR_COUNT);
@@ -196,10 +209,14 @@ pub fn generate_field_vectors() -> FieldVectorFile {
     FieldVectorFile {
         base,
         quartic,
+        quintic,
         octic,
         quartic_extrapolate,
         quartic_eq_poly,
         quartic_hypercube,
+        quintic_extrapolate,
+        quintic_eq_poly,
+        quintic_hypercube,
         octic_extrapolate,
         octic_eq_poly,
         octic_hypercube,
@@ -223,12 +240,12 @@ pub fn generate_merkle_vectors(effective_digest_bytes: usize) -> anyhow::Result<
 
     let hasher = KeccakFieldHash::new(effective_digest_bytes);
     let compress = KeccakNodeCompress::new(effective_digest_bytes);
-    let mmcs = MerkleTreeMmcs::<F, u64, KeccakFieldHash, KeccakNodeCompress, DIGEST_ELEMS>::new(
-        hasher, compress,
+    let mmcs = MerkleTreeMmcs::<F, u64, KeccakFieldHash, KeccakNodeCompress, 2, DIGEST_ELEMS>::new(
+        hasher, compress, 0,
     );
 
     let (root, prover_data) = mmcs.commit_matrix(matrix);
-    let expected_root = *root.as_ref();
+    let expected_root = root.roots()[0];
 
     let leaf_hashes: Vec<[u64; DIGEST_ELEMS]> = rows
         .iter()
@@ -370,7 +387,7 @@ where
 {
     let mut out = Vec::with_capacity(count);
     for i in 0..count {
-        let dimension = (i % 4) + 1;
+        let dimension = EQ_POLY_DIMENSIONS[i % EQ_POLY_DIMENSIONS.len()];
         let p = random_extension_vec::<EF>(rng, dimension);
         let q = random_extension_vec::<EF>(rng, dimension);
         let result = MultilinearPoint::<EF>::eval_eq(&p, &q);
@@ -399,7 +416,7 @@ where
 {
     let mut out = Vec::with_capacity(count);
     for i in 0..count {
-        let num_variables = (i % 4) + 1;
+        let num_variables = HYPERCUBE_NUM_VARIABLES[i % HYPERCUBE_NUM_VARIABLES.len()];
         let evals = random_extension_vec::<EF>(rng, 1 << num_variables);
         let point = random_extension_vec::<EF>(rng, num_variables);
         let result = EvaluationsList::new(evals.clone())

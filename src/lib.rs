@@ -1,6 +1,10 @@
 pub mod abi_export;
 pub mod fixed_config_codegen;
+pub mod fixture_export;
+pub mod octic_fixture;
 pub mod quartic_fixture;
+pub mod quintic_fixture;
+pub mod quintic_schedule_dump;
 pub mod spartan_context_fixture;
 pub mod transcript;
 pub mod utils;
@@ -16,6 +20,17 @@ pub const FIXTURE_WHIR_PARAMS: WhirParams = WhirParams {
     folding_factor: 4,
     starting_log_inv_rate: 6,
     rs_domain_initial_reduction_factor: 1,
+    folding_schedule: None,
+    round_log_inv_rates: Vec::new(),
+};
+
+pub const FIXTURE_WHIR_PARAMS_LIR11: WhirParams = WhirParams {
+    pow_bits: 30,
+    folding_factor: 5,
+    starting_log_inv_rate: 11,
+    rs_domain_initial_reduction_factor: 3,
+    folding_schedule: None,
+    round_log_inv_rates: Vec::new(),
 };
 
 sol! {

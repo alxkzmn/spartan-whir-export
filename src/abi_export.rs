@@ -7,13 +7,17 @@ use whir_p3::whir::proof::{
 };
 
 use crate::{
-    quartic_fixture::{RawWhirProof4, EF4},
     utils::{pack_extension_u256, to_bytes32_digest, to_u256_base, to_u256_usize},
     QueryBatchOpening, SpartanInstance, SpartanProof, SumcheckData, WhirProof, WhirRoundProof,
     WhirStatement, DIGEST_ELEMS,
 };
 
-pub fn proof_to_abi(raw_proof: &RawWhirProof4) -> anyhow::Result<WhirProof> {
+pub fn proof_to_abi<EF>(
+    raw_proof: &whir_p3::whir::proof::WhirProof<F, EF, u64, DIGEST_ELEMS>,
+) -> anyhow::Result<WhirProof>
+where
+    EF: BasedVectorSpace<F> + Copy + Send + Sync,
+{
     let rounds = raw_proof
         .rounds
         .iter()
@@ -77,7 +81,10 @@ pub fn proof_to_abi(raw_proof: &RawWhirProof4) -> anyhow::Result<WhirProof> {
     })
 }
 
-pub fn statement_to_abi(points: &[Vec<EF4>], evaluations: &[EF4]) -> WhirStatement {
+pub fn statement_to_abi<EF>(points: &[Vec<EF>], evaluations: &[EF]) -> WhirStatement
+where
+    EF: BasedVectorSpace<F>,
+{
     WhirStatement {
         points: points
             .iter()
