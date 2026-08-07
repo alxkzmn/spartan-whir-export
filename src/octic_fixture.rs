@@ -2,7 +2,7 @@ use crate::quartic_fixture::{
     build_standalone_fixture, tamper_first_initial_ood_answer, tamper_first_stir_query,
     GenericWhirProof, StandaloneWhirFixture,
 };
-use spartan_whir::{engine::OcticBinExtension, SecurityConfig, SoundnessAssumption, WhirParams};
+use crate::{OcticBinExtension, SecurityConfig, SoundnessAssumption, WhirParams};
 
 pub type EF8 = OcticBinExtension;
 pub type RawWhirProof8 = GenericWhirProof<EF8>;

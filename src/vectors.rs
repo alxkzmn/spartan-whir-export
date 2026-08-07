@@ -1,3 +1,7 @@
+use crate::{
+    KeccakFieldHash, KeccakNodeCompress, OcticBinExtension, QuarticBinExtension, QuinticExtension,
+    F,
+};
 use anyhow::ensure;
 use p3_commit::Mmcs;
 use p3_field::{BasedVectorSpace, ExtensionField, Field, PrimeCharacteristicRing, PrimeField32};
@@ -5,10 +9,6 @@ use p3_matrix::dense::RowMajorMatrix;
 use p3_merkle_tree::MerkleTreeMmcs;
 use p3_symmetric::PseudoCompressionFunction;
 use serde::Serialize;
-use spartan_whir::{
-    engine::{OcticBinExtension, QuarticBinExtension, QuinticExtension, F},
-    KeccakFieldHash, KeccakNodeCompress,
-};
 use whir_p3::whir::merkle_multiproof::{
     build_multiproof_from_paths, compute_root_from_multiproof, hash_leaf_base,
 };

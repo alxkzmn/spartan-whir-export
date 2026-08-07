@@ -1,12 +1,11 @@
+use crate::{
+    effective_digest_bytes_for_security_bits, ExtField, KeccakFieldHash, KeccakNodeCompress,
+    QuarticBinExtension, SecurityConfig, SoundnessAssumption, WhirParams, F,
+};
 use anyhow::{ensure, Context};
 use p3_challenger::FieldChallenger;
 use p3_dft::Radix2DFTSmallBatch;
 use p3_field::{BasedVectorSpace, ExtensionField, PrimeCharacteristicRing, TwoAdicField};
-use spartan_whir::{
-    effective_digest_bytes_for_security_bits,
-    engine::{ExtField, QuarticBinExtension, F},
-    KeccakFieldHash, KeccakNodeCompress, SecurityConfig, SoundnessAssumption, WhirParams,
-};
 use whir_p3::{
     fiat_shamir::domain_separator::DomainSeparator as WhirFsDomainSeparator,
     parameters::{errors::SecurityAssumption as WhirSecurity, FoldingFactor, ProtocolParameters},

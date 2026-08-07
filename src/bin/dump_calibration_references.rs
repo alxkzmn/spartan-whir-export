@@ -2,14 +2,11 @@ use std::process::Command;
 
 use p3_field::{Field, TwoAdicField};
 use serde::Serialize;
-use spartan_whir::{
-    engine::{OcticBinExtension, QuarticBinExtension, F},
-    SecurityConfig, SoundnessAssumption, WhirParams,
-};
 use spartan_whir_export::{
     octic_fixture::{OCTIC_K22_JB100_SECURITY, OCTIC_K22_JB100_WHIR_PARAMS},
     quartic_fixture::{build_checked_whir_config, protocol_params_for_fixture_with_folding_factor},
     quintic_schedule_dump::{DepthCount, EncodingCounts, MerkleGeometry, RoundDump},
+    OcticBinExtension, QuarticBinExtension, SecurityConfig, SoundnessAssumption, WhirParams, F,
     FIXTURE_WHIR_PARAMS, FIXTURE_WHIR_PARAMS_LIR11,
 };
 use whir_p3::parameters::FoldingFactor;

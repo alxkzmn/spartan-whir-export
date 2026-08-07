@@ -3,6 +3,10 @@
 Rust crate that generates ABI-encoded test fixtures and JSON test vectors for the [Solidity Spartan-WHIR verifier](https://github.com/alxkzmn/sol-spartan-whir).
 WIP workspace with all modules side-by-side for convenience: [spartan-whir-dev](https://github.com/alxkzmn/spartan-whir-dev).
 
+This exporter belongs to the standalone WHIR Solidity line. It intentionally does not depend on
+the current client-side `spartan-whir` SNARK. It uses `whir-p3` and pins its Plonky3 dependencies
+to revision `fc7d591e6ec54b9220ed120e1ba0f8978a9c2391`.
+
 ## What it produces
 
 | File                                                   | Format | Purpose                                                                            |
@@ -54,5 +58,9 @@ The default `export-fixtures` binary is the `lir6_ff5_rsv1` exporter and keeps w
 | `abi_export.rs`                         | Converts Rust proof/statement types to ABI structs            |
 | `vectors.rs`                            | Generates field arithmetic and Merkle test vectors            |
 | `utils.rs`                              | Shared helpers (hex encoding, extension packing, file I/O)    |
+| `engine.rs`                             | Concrete field types and WHIR cryptographic type aliases      |
+| `keccak_challenger.rs`                  | Keccak Fiat-Shamir challenger                                 |
+| `hashers.rs`                            | Keccak leaf hashing and Merkle node compression               |
+| `params.rs`                             | Exporter security and WHIR parameter types                    |
 | `bin/export_fixtures.rs`                | Current `lir6_ff5_rsv1` exporter plus shared vectors          |
 | `bin/export_fixtures_lir11_ff5_rsv3.rs` | Alternate `lir11_ff5_rsv3` schedule exporter                  |

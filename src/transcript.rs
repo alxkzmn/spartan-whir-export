@@ -1,9 +1,9 @@
+use crate::{keccak_challenger, KeccakChallenger, F};
 use alloy_primitives::Bytes;
 use p3_challenger::{CanObserve, CanSample, CanSampleBits, FieldChallenger, GrindingChallenger};
 use p3_field::PrimeField32;
 use p3_symmetric::Hash;
 use serde::Serialize;
-use spartan_whir::{engine::F, keccak_challenger, KeccakChallenger};
 
 use crate::ChallengerTranscriptEvent;
 

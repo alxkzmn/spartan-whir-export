@@ -6,8 +6,8 @@ use std::{
 use p3_challenger::{CanObserve, GrindingChallenger};
 use p3_field::{PrimeCharacteristicRing, PrimeField32};
 use serde::Serialize;
-use spartan_whir::engine::F;
 use spartan_whir_export::transcript::TraceChallenger;
+use spartan_whir_export::F;
 
 #[derive(Debug, Serialize)]
 struct PowCalibrationReport {

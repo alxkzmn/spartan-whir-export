@@ -1,7 +1,7 @@
+use crate::F;
 use alloy_primitives::U256;
 use anyhow::{ensure, Context};
 use p3_field::BasedVectorSpace;
-use spartan_whir::engine::F;
 use whir_p3::whir::proof::{
     QueryBatchOpening as RawQueryBatchOpening, SumcheckData as RawSumcheckData,
 };

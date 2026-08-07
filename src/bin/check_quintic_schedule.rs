@@ -1,9 +1,9 @@
-use spartan_whir::{
-    effective_digest_bytes_for_security_bits, engine::QuinticExtension, SecurityConfig,
-    SoundnessAssumption, WhirParams,
-};
 use spartan_whir_export::quartic_fixture::{
     build_checked_whir_config, protocol_params_for_fixture_with_folding_factor,
+};
+use spartan_whir_export::{
+    effective_digest_bytes_for_security_bits, QuinticExtension, SecurityConfig,
+    SoundnessAssumption, WhirParams,
 };
 use whir_p3::parameters::FoldingFactor;
 

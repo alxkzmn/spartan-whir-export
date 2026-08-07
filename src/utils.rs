@@ -1,11 +1,11 @@
 use std::{fs, path::Path};
 
+use crate::{digest_to_bytes, F};
 use alloy_primitives::{FixedBytes, U256};
 use alloy_sol_types::SolValue;
 use anyhow::Context;
 use p3_field::{BasedVectorSpace, PrimeField32};
 use serde::Serialize;
-use spartan_whir::{digest_to_bytes, engine::F};
 
 use crate::DIGEST_ELEMS;
 

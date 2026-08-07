@@ -9,16 +9,12 @@ use p3_matrix::{dense::RowMajorMatrixView, Matrix};
 use p3_merkle_tree::MerkleTreeMmcs;
 use p3_symmetric::Hash;
 use serde::Serialize;
-use spartan_whir::{
-    engine::{KeccakFieldHash, KeccakNodeCompress, F},
-    WhirParams,
-};
 use spartan_whir_export::{
     quartic_fixture::{protocol_params_for_fixture_with_folding_factor, GenericWhirProof},
     quintic_fixture::{EF5, QUINTIC_K22_JB100_NUM_VARIABLES, QUINTIC_K22_JB100_SECURITY},
     quintic_schedule_dump::{build_default_quintic_schedule_dump, ScheduleCandidate},
     transcript::TraceChallenger,
-    DIGEST_ELEMS,
+    KeccakFieldHash, KeccakNodeCompress, WhirParams, DIGEST_ELEMS, F,
 };
 use whir_p3::{
     fiat_shamir::domain_separator::DomainSeparator as WhirFsDomainSeparator,

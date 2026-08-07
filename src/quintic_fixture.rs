@@ -1,4 +1,4 @@
-use spartan_whir::{engine::QuinticExtension, SecurityConfig, SoundnessAssumption, WhirParams};
+use crate::{QuinticExtension, SecurityConfig, SoundnessAssumption, WhirParams};
 use whir_p3::parameters::FoldingFactor;
 
 use crate::quartic_fixture::{build_standalone_fixture_with_folding_factor, StandaloneWhirFixture};

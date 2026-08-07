@@ -1,10 +1,9 @@
+use crate::{
+    effective_digest_bytes_for_security_bits, KeccakFieldHash, KeccakNodeCompress,
+    QuinticExtension, SecurityConfig, SoundnessAssumption, WhirParams, F,
+};
 use p3_field::TwoAdicField;
 use serde::Serialize;
-use spartan_whir::{
-    effective_digest_bytes_for_security_bits,
-    engine::{QuinticExtension, F},
-    KeccakFieldHash, KeccakNodeCompress, SecurityConfig, SoundnessAssumption, WhirParams,
-};
 use whir_p3::{
     parameters::{errors::SecurityAssumption as WhirSecurity, FoldingFactor, ProtocolParameters},
     whir::parameters::WhirConfig,

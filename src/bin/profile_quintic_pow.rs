@@ -4,10 +4,10 @@ use anyhow::Context;
 use p3_challenger::{CanObserve, GrindingChallenger};
 use p3_field::{PrimeCharacteristicRing, PrimeField32};
 use serde::Serialize;
-use spartan_whir::engine::F;
 use spartan_whir_export::{
     quintic_schedule_dump::{build_default_quintic_schedule_dump, ScheduleCandidate},
     transcript::TraceChallenger,
+    F,
 };
 
 #[derive(Debug, Serialize)]

@@ -3,10 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::{effective_digest_bytes_for_security_bits, WhirParams};
 use alloy_primitives::FixedBytes;
 use anyhow::Context;
 use serde::Serialize;
-use spartan_whir::{effective_digest_bytes_for_security_bits, WhirParams};
 
 use crate::{
     abi_export::{

@@ -1,7 +1,11 @@
 pub mod abi_export;
+pub mod engine;
 pub mod fixed_config_codegen;
 pub mod fixture_export;
+mod hashers;
+mod keccak_challenger;
 pub mod octic_fixture;
+mod params;
 pub mod quartic_fixture;
 pub mod quintic_fixture;
 pub mod quintic_schedule_dump;
@@ -12,7 +16,17 @@ pub mod vectors;
 pub mod whir_blob_export;
 
 use alloy_sol_types::sol;
-use spartan_whir::WhirParams;
+
+pub use engine::{
+    keccak_challenger, ExtField, KeccakChallenger, KeccakFieldHash, KeccakNodeCompress,
+    OcticBinExtension, QuarticBinExtension, QuinticExtension, F,
+};
+pub use hashers::{
+    digest_from_bytes, digest_to_bytes, effective_digest_bytes_for_security_bits,
+    Keccak256NodeCompress, KeccakFieldLeafHasher, KECCAK_DIGEST_ELEMS,
+};
+pub use keccak_challenger::{CanonicalKeccakChallenger32, KeccakByteChallenger};
+pub use params::{SecurityConfig, SoundnessAssumption, WhirFoldingSchedule, WhirParams};
 
 pub const DIGEST_ELEMS: usize = 4;
 pub const FIXTURE_WHIR_PARAMS: WhirParams = WhirParams {

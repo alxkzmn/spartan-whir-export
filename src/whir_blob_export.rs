@@ -1,6 +1,6 @@
+use crate::{digest_to_bytes, F};
 use anyhow::{ensure, Context};
 use p3_field::{BasedVectorSpace, PrimeField32};
-use spartan_whir::{digest_to_bytes, engine::F};
 use whir_p3::whir::proof::QueryBatchOpening as RawQueryBatchOpening;
 
 use crate::{
